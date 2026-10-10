@@ -1,0 +1,6 @@
+{
+  "name": "Monopoli WNI Simulator: Realita & Rute Korupsi",
+  "description": "Game monopoli satir kehidupan WNI penuh musibah sosial, inflasi dinamis makroekonomi, kartu dilema Konoha, rute korupsi berisiko OTT KPK, dan perebutan kekuasaan politik.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
