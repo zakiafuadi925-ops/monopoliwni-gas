@@ -7,6 +7,7 @@ import { soundManager } from '../utils/sound';
 interface SetupGameModalProps {
   onStartGame: (players: Player[]) => void;
   bannerImage: string;
+  onClose?: () => void;
 }
 
 interface PlayerConfig {
@@ -17,7 +18,8 @@ interface PlayerConfig {
 
 export const SetupGameModal: React.FC<SetupGameModalProps> = ({
   onStartGame,
-  bannerImage
+  bannerImage,
+  onClose
 }) => {
   const [numPlayers, setNumPlayers] = useState<number>(3);
 
@@ -56,6 +58,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
         isInCorruptionRoute: false,
         kpkSuspicionLevel: 10,
         isBankrupt: false,
+        specialCards: [],
         color: arch.color,
         avatar: arch.avatar,
         title: arch.title,
@@ -74,7 +77,16 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
-      <div className="max-w-2xl w-full bg-slate-900 border-2 border-amber-500/80 rounded-2xl shadow-2xl overflow-hidden text-slate-100 my-auto max-h-[95vh] flex flex-col">
+      <div className="relative max-w-2xl w-full bg-slate-900 border-2 border-amber-500/80 rounded-2xl shadow-2xl overflow-hidden text-slate-100 my-auto max-h-[95vh] flex flex-col">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-slate-950/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
+            title="Tutup / Kembali ke permainan"
+          >
+            ✕
+          </button>
+        )}
         {/* Banner */}
         <div className="relative h-28 sm:h-36 bg-slate-950 overflow-hidden border-b border-amber-500/40 shrink-0">
           <img

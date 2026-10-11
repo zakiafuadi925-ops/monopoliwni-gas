@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
-import { Player, BoardTile, MacroEconomy, GameLogItem } from '../types/game';
-import { formatRupiah, formatRupiahShort } from '../utils/format';
+import { Player, BoardTile, MacroEconomy, GameLogItem, MacroHistoryPoint } from '../types/game';
+import { formatRupiah, formatRupiahShort, formatPercent } from '../utils/format';
+import { MacroHistoryChart } from './MacroHistoryChart';
+import { 
+  StressIndicator, 
+  PoliticalInfluenceGauge, 
+  KPKRadarGauge,
+  KPKRadarPingEffect
+} from './VitalIndicators';
 import { 
   BarChart3, 
   Wallet, 
@@ -11,30 +18,39 @@ import {
   ShieldAlert, 
   TrendingUp,
   X,
-  Users
+  Users,
+  LineChart,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 
 interface PlayerStatsDrawerProps {
   players: Player[];
   tiles: BoardTile[];
   macro: MacroEconomy;
+  macroHistory?: MacroHistoryPoint[];
+  currentRound?: number;
   logs: GameLogItem[];
   isOpen: boolean;
   onClose: () => void;
   activePlayerId: string;
+  onOpenFullHistory?: () => void;
 }
 
 export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
   players,
   tiles,
   macro,
+  macroHistory = [],
+  currentRound = 1,
   logs,
   isOpen,
   onClose,
-  activePlayerId
+  activePlayerId,
+  onOpenFullHistory
 }) => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(activePlayerId);
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PROPERTIES' | 'LOGS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'MACRO' | 'PROPERTIES' | 'LOGS'>('OVERVIEW');
 
   if (!isOpen) return null;
 
@@ -80,39 +96,53 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-800 bg-slate-950/50 p-1">
+        <div className="flex border-b border-slate-800 bg-slate-950/50 p-1 gap-1">
           <button
             onClick={() => setActiveTab('OVERVIEW')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'OVERVIEW'
                 ? 'bg-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Peringkat & Ringkasan</span>
+            <span>Peringkat</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('MACRO')}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 relative cursor-pointer ${
+              activeTab === 'MACRO'
+                ? 'bg-amber-500 text-slate-950 shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <LineChart className="w-3.5 h-3.5" />
+            <span>Tren Makro</span>
+            {macro.trend === 'CRISIS' && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping absolute top-1.5 right-1.5" />
+            )}
           </button>
           <button
             onClick={() => setActiveTab('PROPERTIES')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'PROPERTIES'
                 ? 'bg-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Building2 className="w-3.5 h-3.5" />
-            <span>Portofolio Aset</span>
+            <span>Aset</span>
           </button>
           <button
             onClick={() => setActiveTab('LOGS')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'LOGS'
                 ? 'bg-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <History className="w-3.5 h-3.5" />
-            <span>Riwayat Kejadian</span>
+            <span>Riwayat</span>
           </button>
         </div>
 
@@ -176,6 +206,51 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                             <span className="text-[11px] text-slate-400">
                               {p.title}
                             </span>
+
+                            {/* Mini Vitals Badges in Leaderboard */}
+                            <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                              <span 
+                                title={`Tingkat Stres: ${p.stress}%`}
+                                className={`px-1.5 py-0.2 rounded font-mono font-bold flex items-center gap-0.5 ${
+                                  p.stress >= 80 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-slate-900 text-slate-400'
+                                }`}
+                              >
+                                <HeartCrack className="w-2.5 h-2.5" />
+                                {p.stress}%
+                              </span>
+
+                              <span 
+                                title={`Modal Politik: ${p.politicalInfluence}/100`}
+                                className="px-1.5 py-0.2 rounded font-mono font-bold bg-slate-900 text-amber-400 flex items-center gap-0.5"
+                              >
+                                <Sparkles className="w-2.5 h-2.5" />
+                                {p.politicalInfluence}
+                              </span>
+
+                              <span 
+                                title={`Radar Pengawasan KPK: ${p.kpkSuspicionLevel}%${p.kpkSuspicionLevel > 60 ? ' - RISIKO TINGGI OTT!' : ''}`}
+                                className={`relative px-1.5 py-0.2 rounded font-mono font-bold flex items-center gap-1 ${
+                                  p.kpkSuspicionLevel > 60 
+                                    ? 'bg-rose-950/80 text-rose-300 border border-rose-500/80 shadow-[0_0_8px_rgba(244,63,94,0.4)]' 
+                                    : p.kpkSuspicionLevel > 50 
+                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' 
+                                    : 'bg-slate-900 text-slate-400'
+                                }`}
+                              >
+                                <span className="relative flex items-center justify-center">
+                                  {p.kpkSuspicionLevel > 60 && (
+                                    <KPKRadarPingEffect suspicionLevel={p.kpkSuspicionLevel} size="sm" />
+                                  )}
+                                  <ShieldAlert className={`w-2.5 h-2.5 relative z-10 ${p.kpkSuspicionLevel > 60 ? 'text-rose-400' : ''}`} />
+                                </span>
+                                <span>{p.kpkSuspicionLevel}%</span>
+                                {p.kpkSuspicionLevel > 60 && (
+                                  <span className="text-[8px] bg-rose-600 text-white px-0.5 rounded font-black tracking-tighter">
+                                    OTT
+                                  </span>
+                                )}
+                              </span>
+                            </div>
                           </div>
                         </div>
 
@@ -200,15 +275,35 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                     <span className="text-xl">{selectedPlayer.avatar}</span>
                     <div>
                       <h4 className="font-extrabold text-sm text-white">
-                        Detail Status: {selectedPlayer.name}
+                        Detail Status & Indikator Vital: {selectedPlayer.name}
                       </h4>
-                      <span className="text-[11px] text-slate-400">
-                        {selectedPlayer.title}
-                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-slate-400">
+                          {selectedPlayer.title}
+                        </span>
+                        {selectedPlayer.kpkSuspicionLevel > 60 && (
+                          <div 
+                            className="relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/90 border border-rose-500 text-rose-300 text-[10px] font-bold shadow-[0_0_12px_rgba(244,63,94,0.5)]"
+                            title={`RISIKO OTT TINGGI! Penyadapan KPK di ${selectedPlayer.kpkSuspicionLevel}%`}
+                          >
+                            <span className="relative flex items-center justify-center w-3 h-3">
+                              <KPKRadarPingEffect suspicionLevel={selectedPlayer.kpkSuspicionLevel} size="sm" />
+                              <ShieldAlert className="w-3 h-3 text-rose-400 relative z-10" />
+                            </span>
+                            <span className="font-mono text-rose-400 font-black">
+                              RADAR KPK {selectedPlayer.kpkSuspicionLevel}%
+                            </span>
+                            <span className="text-[9px] bg-rose-600 text-white px-1 rounded uppercase tracking-wider font-extrabold animate-pulse">
+                              SIAGA OTT
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Financial Overview Cards */}
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
                     <span className="text-slate-400 text-[11px] block">Kas Tunai Liquid</span>
@@ -223,31 +318,17 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                       {formatRupiah(calculateNetWorth(selectedPlayer) - selectedPlayer.cash)}
                     </span>
                   </div>
+                </div>
 
-                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-slate-400 text-[11px]">Stres Mental</span>
-                      <span className="font-mono font-bold text-rose-400">{selectedPlayer.stress}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-rose-500"
-                        style={{ width: `${selectedPlayer.stress}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-slate-400 text-[11px]">Modal Politik</span>
-                      <span className="font-mono font-bold text-amber-400">{selectedPlayer.politicalInfluence}/100</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-amber-500"
-                        style={{ width: `${selectedPlayer.politicalInfluence}%` }}
-                      />
-                    </div>
+                {/* The 3 Vital Gauges: Stress, Political Clout, KPK Radar */}
+                <div className="space-y-2 pt-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Indikator Mental, Kekuasaan & Hukum:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <StressIndicator player={selectedPlayer} variant="card" interactive={true} />
+                    <PoliticalInfluenceGauge player={selectedPlayer} variant="card" interactive={true} />
+                    <KPKRadarGauge player={selectedPlayer} variant="card" interactive={true} />
                   </div>
                 </div>
 
@@ -267,6 +348,46 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Macro Economic Quick Card Banner */}
+              <div 
+                onClick={() => setActiveTab('MACRO')}
+                className="p-3 bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950/40 border border-slate-800 hover:border-amber-500/50 rounded-xl flex items-center justify-between cursor-pointer transition-all group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <LineChart className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-white">Observatorium Tren Makroekonomi</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                        macro.trend === 'CRISIS' ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-slate-800 text-slate-300'
+                      }`}>
+                        {macro.trend}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Inflasi: <span className="text-amber-400 font-bold">{formatPercent(macro.inflationRate)}</span> · USD: <span className="text-cyan-400 font-bold">{formatRupiah(macro.usdIdrRate)}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-[11px] font-bold text-amber-400 group-hover:translate-x-0.5 transition-transform">
+                  <span>Lihat Grafik</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'MACRO' && (
+            <div className="space-y-4">
+              <MacroHistoryChart
+                macro={macro}
+                history={macroHistory}
+                currentRound={currentRound}
+              />
             </div>
           )}
 
@@ -357,9 +478,30 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
 
           {activeTab === 'LOGS' && (
             <div className="space-y-2">
-              <span className="text-xs uppercase font-bold text-amber-400 tracking-wider block mb-1">
-                Catatan Berita & Aktivitas Permainan
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs uppercase font-bold text-amber-400 tracking-wider block">
+                  Catatan Berita & Aktivitas ({logs.length})
+                </span>
+                {onOpenFullHistory && (
+                  <button
+                    onClick={onOpenFullHistory}
+                    className="text-[11px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <History className="w-3 h-3" />
+                    <span>Buka Jendela Penuh</span>
+                  </button>
+                )}
+              </div>
+
+              {onOpenFullHistory && (
+                <button
+                  onClick={onOpenFullHistory}
+                  className="w-full py-2 px-3 bg-gradient-to-r from-amber-500/15 to-amber-600/15 hover:from-amber-500/25 hover:to-amber-600/25 border border-amber-500/40 rounded-xl text-amber-300 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                >
+                  <History className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Buka Logbook Sejarah Lengkap & Arsip Nasional</span>
+                </button>
+              )}
 
               {logs.length === 0 ? (
                 <p className="text-xs text-slate-500 text-center py-6">

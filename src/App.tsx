@@ -11,7 +11,8 @@ import {
   ActiveLaw, 
   BreakingNewsEvent, 
   GameLogItem, 
-  DilemmaCard 
+  DilemmaCard,
+  MacroHistoryPoint
 } from './types/game';
 import { PERIMETER_TILES, CORRUPTION_ROUTE_TILES } from './data/tiles';
 import { DILEMMA_CARDS } from './data/cards';
@@ -19,6 +20,39 @@ import { CHARACTER_ARCHETYPES } from './data/characters';
 import { BREAKING_NEWS_TEMPLATES, LawProposal } from './data/laws';
 import { formatRupiah, formatRupiahShort } from './utils/format';
 import { soundManager } from './utils/sound';
+
+const INITIAL_MACRO_HISTORY: MacroHistoryPoint[] = [
+  {
+    round: 0,
+    label: "Q3 '25",
+    fullPeriod: "Kuartal 3 2025 (Historis Pra-Game)",
+    inflationRate: 4.2,
+    usdIdrRate: 15950,
+    biRate: 6.0,
+    trend: 'STABLE',
+    note: 'Stabilitas Moneter Awal'
+  },
+  {
+    round: 0,
+    label: "Q4 '25",
+    fullPeriod: "Kuartal 4 2025 (Historis Pra-Game)",
+    inflationRate: 4.8,
+    usdIdrRate: 16180,
+    biRate: 6.0,
+    trend: 'RISING',
+    note: 'Peningkatan Belanja Konsumsi'
+  },
+  {
+    round: 1,
+    label: 'P1',
+    fullPeriod: 'Putaran 1 · Jan 2026 (W1)',
+    inflationRate: 5.2,
+    usdIdrRate: 16350,
+    biRate: 6.25,
+    trend: 'STABLE',
+    note: 'Awal Permainan'
+  }
+];
 
 // Components
 import { Board } from './components/Board';
@@ -33,8 +67,10 @@ import { SetupGameModal } from './components/SetupGameModal';
 import { GameOverModal } from './components/GameOverModal';
 import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
+import { GameLogsModal } from './components/GameLogsModal';
+import { KPKRadarPingEffect } from './components/VitalIndicators';
 import { MUSIBAH_EVENT_CARDS, TAKDIR_EVENT_CARDS } from './data/eventCards';
-import { EventOutcomeCard } from './types/game';
+import { EventOutcomeCard, SpecialCardItem } from './types/game';
 
 // Icons
 import { 
@@ -50,7 +86,8 @@ import {
   ArrowRight,
   ShieldCheck,
   HeartCrack,
-  Skull
+  Skull,
+  History
 } from 'lucide-react';
 
 // Image assets generated
@@ -70,7 +107,7 @@ const createDefaultPlayers = (): Player[] => [
     archetypeId: 'bambang_umr',
     isAi: false,
     position: 0,
-    cash: 6_000_000,
+    cash: 60_000_000,
     stress: 10,
     politicalInfluence: 5,
     ownedProperties: [],
@@ -82,6 +119,7 @@ const createDefaultPlayers = (): Player[] => [
     color: '#0284c7',
     avatar: '🛵',
     title: 'Buruh Pabrik & Ojol Pejuang Nafkah',
+    specialCards: [],
     stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
   },
   {
@@ -90,7 +128,7 @@ const createDefaultPlayers = (): Player[] => [
     archetypeId: 'pak_joko_asn',
     isAi: true,
     position: 0,
-    cash: 8_500_000,
+    cash: 85_000_000,
     stress: 5,
     politicalInfluence: 15,
     ownedProperties: [],
@@ -102,6 +140,7 @@ const createDefaultPlayers = (): Player[] => [
     color: '#16a34a',
     avatar: '👔',
     title: 'PNS Golongan III/a Santuy',
+    specialCards: [],
     stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
   },
   {
@@ -110,7 +149,7 @@ const createDefaultPlayers = (): Player[] => [
     archetypeId: 'daud_politisi',
     isAi: true,
     position: 0,
-    cash: 10_000_000,
+    cash: 100_000_000,
     stress: 15,
     politicalInfluence: 35,
     ownedProperties: [],
@@ -122,6 +161,7 @@ const createDefaultPlayers = (): Player[] => [
     color: '#f59e0b',
     avatar: '🏛️',
     title: 'Caleg Muda Berdasi & Aktivis Timses',
+    specialCards: [],
     stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
   }
 ];
@@ -137,7 +177,15 @@ export default function App() {
   const [activePlayerIndex, setActivePlayerIndex] = useState<number>(0);
   const [hasRolled, setHasRolled] = useState<boolean>(false);
   const [isRolling, setIsRolling] = useState<boolean>(false);
+  const [isMoving, setIsMoving] = useState<boolean>(false);
+  const moveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastRoll, setLastRoll] = useState<{ d1: number; d2: number; total: number } | null>(null);
+  const [diceRollAnimation, setDiceRollAnimation] = useState<{
+    player: Player;
+    d1: number;
+    d2: number;
+    total: number;
+  } | null>(null);
 
   // Board & Economy
   const [perimeterTiles, setPerimeterTiles] = useState<BoardTile[]>(PERIMETER_TILES);
@@ -151,6 +199,7 @@ export default function App() {
     weekIndex: 1,
     year: 2026
   });
+  const [macroHistory, setMacroHistory] = useState<MacroHistoryPoint[]>(INITIAL_MACRO_HISTORY);
   const [activeLaws, setActiveLaws] = useState<ActiveLaw[]>([]);
   const [cycleRound, setCycleRound] = useState<number>(1);
 
@@ -160,14 +209,14 @@ export default function App() {
   const [showCorruptionGate, setShowCorruptionGate] = useState<boolean>(false);
   const [showCorruptionAudit, setShowCorruptionAudit] = useState<boolean>(false);
   const [showKpkBribe, setShowKpkBribe] = useState<boolean>(false);
-  const [showMusibahModal, setShowMusibahModal] = useState<boolean>(false);
-  const [musibahConfiscatedTile, setMusibahConfiscatedTile] = useState<BoardTile | null>(null);
-  const [musibahFine, setMusibahFine] = useState<number>(0);
-  const [showTakdirModal, setShowTakdirModal] = useState<boolean>(false);
-  const [takdirOutcome, setTakdirOutcome] = useState<TakdirOutcome | null>(null);
+  const [activeDrawCardEvent, setActiveDrawCardEvent] = useState<{
+    type: 'MUSIBAH' | 'TAKDIR';
+    cardsPool: EventOutcomeCard[];
+  } | null>(null);
   const [showParliament, setShowParliament] = useState<boolean>(false);
   const [currentNews, setCurrentNews] = useState<BreakingNewsEvent | null>(null);
   const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
+  const [showLogsModal, setShowLogsModal] = useState<boolean>(false);
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(false);
 
   // Survival Notifications
@@ -189,7 +238,7 @@ export default function App() {
     round: number;
   } | null>(null);
 
-  // Logs
+  // Logs - Full scrollable history
   const [logs, setLogs] = useState<GameLogItem[]>([]);
 
   const addLog = (message: string, type: GameLogItem['type'] = 'INFO', playerId?: string) => {
@@ -203,7 +252,7 @@ export default function App() {
       message,
       type
     };
-    setLogs(prev => [...prev.slice(-40), newLog]);
+    setLogs(prev => [...prev.slice(-1000), newLog]);
   };
 
   const activePlayer = players[activePlayerIndex] || null;
@@ -212,6 +261,10 @@ export default function App() {
 
   // Initialize game from Setup Modal (Survival Mode)
   const handleStartGame = (configuredPlayers: Player[]) => {
+    // Reset properties and tiles to clean unowned initial state
+    setPerimeterTiles(PERIMETER_TILES.map(t => ({ ...t, ownerId: null, level: 1 })));
+    setCorruptionTiles(CORRUPTION_ROUTE_TILES.map(t => ({ ...t })));
+
     setPlayers(configuredPlayers);
     setCycleRound(1);
     setMacro({
@@ -223,14 +276,107 @@ export default function App() {
       weekIndex: 1,
       year: 2026
     });
+    setMacroHistory(INITIAL_MACRO_HISTORY);
     setActivePlayerIndex(0);
     setHasRolled(false);
+    setIsRolling(false);
+    setIsMoving(false);
+    if (moveTimerRef.current) {
+      clearTimeout(moveTimerRef.current);
+      moveTimerRef.current = null;
+    }
     setLastRoll(null);
+    setDiceRollAnimation(null);
     setIsGameOver(false);
+    setGameOverReason('');
     setIsSetupOpen(false);
     setLogs([]);
 
+    // Clear all lingering notices, alerts, and modal states
+    setEliminationNotice(null);
+    setPsychologistNotice(null);
+    setMonthNotice(null);
+    setActiveDilemmaCard(null);
+    setActiveDrawCardEvent(null);
+    setShowCorruptionGate(false);
+    setShowCorruptionAudit(false);
+    setShowKpkBribe(false);
+    setShowParliament(false);
+    setShowLogsModal(false);
+    setIsStatsOpen(false);
+    setSelectedTile(null);
+    setActiveLaws([]);
+    setCurrentNews(null);
+
+    soundManager.playVictory();
     addLog(`Pertarungan Survival WNI dimulai dengan ${configuredPlayers.length} pemain! Kemenangan sejati adalah siapa yang mampu bertahan hidup paling lama!`, 'SYSTEM');
+  };
+
+  // Handler to start a new round / reset game via Setup Modal
+  const handleRestartNewRound = () => {
+    setIsGameOver(false);
+    setGameOverReason('');
+    setIsRolling(false);
+    setIsMoving(false);
+    if (moveTimerRef.current) {
+      clearTimeout(moveTimerRef.current);
+      moveTimerRef.current = null;
+    }
+    setDiceRollAnimation(null);
+    setHasRolled(false);
+    setLastRoll(null);
+    setPerimeterTiles(PERIMETER_TILES.map(t => ({ ...t, ownerId: null, level: 1 })));
+    setCorruptionTiles(CORRUPTION_ROUTE_TILES.map(t => ({ ...t })));
+
+    // Clear all lingering notices and overlays
+    setEliminationNotice(null);
+    setPsychologistNotice(null);
+    setMonthNotice(null);
+    setActiveDilemmaCard(null);
+    setActiveDrawCardEvent(null);
+    setShowCorruptionGate(false);
+    setShowCorruptionAudit(false);
+    setShowKpkBribe(false);
+    setShowParliament(false);
+    setShowLogsModal(false);
+    setIsStatsOpen(false);
+    setSelectedTile(null);
+
+    // Open setup modal
+    setIsSetupOpen(true);
+  };
+
+  // Quick restart with the same players reinitialized to archetype starting stats
+  const handleQuickRestart = () => {
+    setIsGameOver(false);
+    setGameOverReason('');
+
+    const reinitializedPlayers: Player[] = players.map((p, idx) => {
+      const arch = CHARACTER_ARCHETYPES.find(a => a.id === p.archetypeId) || CHARACTER_ARCHETYPES[idx % CHARACTER_ARCHETYPES.length];
+      return {
+        ...p,
+        position: 0,
+        cash: arch.startingCash,
+        stress: arch.startingStress,
+        politicalInfluence: arch.startingInfluence,
+        ownedProperties: [],
+        inJail: false,
+        jailTurnsLeft: 0,
+        isInCorruptionRoute: false,
+        kpkSuspicionLevel: 10,
+        isBankrupt: false,
+        specialCards: [],
+        stats: {
+          totalRentEarned: 0,
+          totalRentPaid: 0,
+          totalCorruptionGains: 0,
+          cardsDrawn: 0,
+          timesInJail: 0
+        }
+      };
+    });
+
+    handleStartGame(reinitializedPlayers);
   };
 
   // Bankruptcy & Elimination Handler
@@ -293,7 +439,7 @@ export default function App() {
     if (player.isBankrupt) return false;
 
     if (player.stress >= 100) {
-      const psychologistFee = 1_000_000;
+      const psychologistFee = 10_000_000;
       if (player.cash >= psychologistFee) {
         const updatedCash = player.cash - psychologistFee;
         const updatedStress = Math.max(0, player.stress - 20); // Drops 20% to 80%
@@ -305,7 +451,7 @@ export default function App() {
         } : p));
 
         soundManager.playCash();
-        addLog(`🧠 KONSULTASI PSIKOLOG: Stres ${player.name} mencapai 100%! Membayar Rp 1.000.000 ke psikiater, stres turun 20% menjadi ${updatedStress}%.`, 'INFO', player.id);
+        addLog(`🧠 KONSULTASI PSIKOLOG: Stres ${player.name} mencapai 100%! Membayar Rp 10.000.000 ke psikiater, stres turun 20% menjadi ${updatedStress}%.`, 'INFO', player.id);
         
         setPsychologistNotice({
           player: { ...player, cash: updatedCash, stress: updatedStress },
@@ -316,89 +462,134 @@ export default function App() {
         return true;
       } else {
         // Cannot afford psychologist -> Bankrupt & eliminated!
-        handlePlayerBankruptcy(player, 'Stres mencapai 100% dan saldo kas tidak mencukupi untuk membayar biaya psikolog Rp 1.000.000');
+        handlePlayerBankruptcy(player, 'Stres mencapai 100% dan saldo kas tidak mencukupi untuk membayar biaya psikolog Rp 10.000.000');
         return false;
       }
     }
     return true;
   };
 
-  // Roll Dice Logic
+  // Roll Dice Logic & Visual Animation Engine
   const handleRollDice = (d1: number, d2: number, total: number) => {
-    if (!activePlayer || activePlayer.isBankrupt || hasRolled || isRolling) return;
+    if (!activePlayer || activePlayer.isBankrupt || hasRolled || isRolling || isMoving) return;
 
     setIsRolling(true);
     setLastRoll({ d1, d2, total });
-
-    setTimeout(() => {
-      setIsRolling(false);
-      setHasRolled(true);
-
-      // Handle movement
-      executePlayerMove(activePlayer, total);
-    }, 400);
+    setDiceRollAnimation({
+      player: activePlayer,
+      d1,
+      d2,
+      total
+    });
   };
 
-  // Movement Engine
+  const handleRollAnimationComplete = () => {
+    if (!diceRollAnimation) return;
+    const { player, total } = diceRollAnimation;
+    setDiceRollAnimation(null);
+    setIsRolling(false);
+
+    // Handle pawn movement step-by-step across the board
+    executePlayerMove(player, total);
+  };
+
+  // Step-by-Step Tactile Movement Engine
   const executePlayerMove = (player: Player, totalSteps: number) => {
-    let currentPos = player.position;
-    let newPos = currentPos;
-    let passedStart = false;
+    setIsMoving(true);
+
+    if (moveTimerRef.current) {
+      clearTimeout(moveTimerRef.current);
+      moveTimerRef.current = null;
+    }
 
     // Check if player is currently in Corruption Route
     if (player.isInCorruptionRoute) {
-      if (currentPos === 100) {
+      let newPos = player.position;
+      let exitRoute = false;
+      if (player.position === 100) {
         newPos = 101;
-      } else if (currentPos === 101) {
+      } else if (player.position === 101) {
         newPos = 102;
       } else {
-        // Exit corruption route to DPR Senayan (Tile 21)
         newPos = 21;
-        player.isInCorruptionRoute = false;
-        addLog(`${player.name} keluar dari Rute Korupsi menuju Gedung DPR Senayan!`, 'POLITIC', player.id);
+        exitRoute = true;
       }
-    } else {
-      // Normal perimeter movement (28 tiles loop)
-      const rawPos = currentPos + totalSteps;
-      if (rawPos >= 28) {
-        passedStart = true;
-        newPos = rawPos % 28;
-      } else {
-        newPos = rawPos;
-      }
-    }
 
-    // Update player position
-    setPlayers(prev => prev.map(p => {
-      if (p.id !== player.id) return p;
-      const updated = { ...p, position: newPos };
-      return updated;
-    }));
-
-    // Pass START Salary reward
-    if (passedStart && !player.isInCorruptionRoute) {
-      const inflationFactor = 1 + (macro.inflationRate / 100);
-      const baseSalary = 4_500_000;
-      const bonusPct = (CHARACTER_ARCHETYPES.find(a => a.id === player.archetypeId)?.salaryBonusPercent || 0) / 100;
-      const totalSalary = Math.round(baseSalary * inflationFactor * (1 + bonusPct));
-
-      soundManager.playCash();
+      soundManager.playPawnStep(1);
       setPlayers(prev => prev.map(p => {
         if (p.id !== player.id) return p;
         return {
           ...p,
-          cash: p.cash + totalSalary,
-          stress: Math.max(0, p.stress - 10)
+          position: newPos,
+          isInCorruptionRoute: exitRoute ? false : p.isInCorruptionRoute
         };
       }));
 
-      addLog(`${player.name} melewati START! Gajian UMR cair ${formatRupiah(totalSalary)} dan Stres turun 10%.`, 'CASH', player.id);
+      if (exitRoute) {
+        addLog(`${player.name} keluar dari Rute Korupsi menuju Gedung DPR Senayan!`, 'POLITIC', player.id);
+      }
+
+      moveTimerRef.current = setTimeout(() => {
+        soundManager.playPawnLand();
+        setIsMoving(false);
+        setHasRolled(true);
+        resolveLandingTile(player, newPos);
+      }, 350);
+      return;
     }
 
-    // Handle Landing Tile Action
-    setTimeout(() => {
-      resolveLandingTile(player, newPos);
-    }, 200);
+    // Normal perimeter movement (28 tiles loop: 0 -> 27)
+    let currentStep = 0;
+    let currentPos = player.position;
+    let passedStartAwarded = false;
+
+    const stepInterval = 210; // ms per tile hop
+
+    const stepPawn = () => {
+      currentStep++;
+      const nextPos = (currentPos + 1) % 28;
+      currentPos = nextPos;
+
+      // Play ascending pleasant tactile hop sound
+      soundManager.playPawnStep(currentStep);
+
+      // Check passing or landing on START (Tile 0)
+      if (nextPos === 0 && !passedStartAwarded) {
+        passedStartAwarded = true;
+        const inflationFactor = 1 + (macro.inflationRate / 100);
+        const baseSalary = 45_000_000;
+        const bonusPct = (CHARACTER_ARCHETYPES.find(a => a.id === player.archetypeId)?.salaryBonusPercent || 0) / 100;
+        const totalSalary = Math.round(baseSalary * inflationFactor * (1 + bonusPct));
+
+        soundManager.playCash();
+        setPlayers(prev => prev.map(p => {
+          if (p.id !== player.id) return p;
+          return {
+            ...p,
+            position: nextPos,
+            cash: p.cash + totalSalary,
+            stress: Math.max(0, p.stress - 10)
+          };
+        }));
+        addLog(`${player.name} melewati START! Gajian UMR cair ${formatRupiah(totalSalary)} dan Stres turun 10%.`, 'CASH', player.id);
+      } else {
+        setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, position: nextPos } : p));
+      }
+
+      if (currentStep < totalSteps) {
+        moveTimerRef.current = setTimeout(stepPawn, stepInterval);
+      } else {
+        // Final landing on destination tile
+        moveTimerRef.current = setTimeout(() => {
+          soundManager.playPawnLand();
+          setIsMoving(false);
+          setHasRolled(true);
+          resolveLandingTile(player, nextPos);
+        }, 220);
+      }
+    };
+
+    moveTimerRef.current = setTimeout(stepPawn, 80);
   };
 
   // Resolve Landing Tile Event
@@ -417,21 +608,21 @@ export default function App() {
         soundManager.playCash();
         setPlayers(prev => prev.map(p => p.id === player.id ? {
           ...p,
-          cash: p.cash + 6_000_000,
+          cash: p.cash + 60_000_000,
           kpkSuspicionLevel: Math.min(100, p.kpkSuspicionLevel + 25),
-          stats: { ...p.stats, totalCorruptionGains: p.stats.totalCorruptionGains + 6_000_000 }
+          stats: { ...p.stats, totalCorruptionGains: p.stats.totalCorruptionGains + 60_000_000 }
         } : p));
-        addLog(`${player.name} mengeksekusi Pengadaan Fiktif APBD! Mengantongi Rp 6 Jt tapi Radar KPK +25%.`, 'DANGER', player.id);
+        addLog(`${player.name} mengeksekusi Pengadaan Fiktif APBD! Mengantongi Rp 60 Jt tapi Radar KPK +25%.`, 'DANGER', player.id);
       } else if (tile.id === 101) {
         // Kuota Impor
         soundManager.playCash();
         setPlayers(prev => prev.map(p => p.id === player.id ? {
           ...p,
-          cash: p.cash + 4_500_000,
+          cash: p.cash + 45_000_000,
           politicalInfluence: Math.min(100, p.politicalInfluence + 20),
-          stats: { ...p.stats, totalCorruptionGains: p.stats.totalCorruptionGains + 4_500_000 }
+          stats: { ...p.stats, totalCorruptionGains: p.stats.totalCorruptionGains + 45_000_000 }
         } : p));
-        addLog(`${player.name} mendapat jatah Kuota Impor Pangan! Dapat Rp 4,5 Jt dan +20 Modal Politik.`, 'POLITIC', player.id);
+        addLog(`${player.name} mendapat jatah Kuota Impor Pangan! Dapat Rp 45 Jt dan +20 Modal Politik.`, 'POLITIC', player.id);
       } else if (tile.id === 102) {
         // Sidak BPK & Radar OTT
         setShowCorruptionAudit(true);
@@ -569,15 +760,15 @@ export default function App() {
           addLog(`${player.name} (Pak Joko ASN) punya akses orang dalam di Dukcapil! Bebas dari kerumitan birokrasi.`, 'INFO', player.id);
         } else {
           soundManager.playBuzzer();
-          if (player.cash < 300_000) {
-            handlePlayerBankruptcy(player, 'Tidak sanggup membayar calo administrasi di Dukcapil');
+          if (player.cash < 3_000_000) {
+            handlePlayerBankruptcy(player, 'Tidak sanggup membayar calo administrasi di Dukcapil Rp 3.000.000');
             return;
           }
           setPlayers(prev => prev.map(p => {
             if (p.id === player.id) {
               const updated = {
                 ...p,
-                cash: p.cash - 300_000,
+                cash: p.cash - 3_000_000,
                 stress: Math.min(100, p.stress + 15)
               };
               checkStressThreshold(updated);
@@ -585,133 +776,26 @@ export default function App() {
             }
             return p;
           }));
-          addLog(`Blangko e-KTP habis! ${player.name} terpaksa bayar calo Rp 300.000 dan stres naik +15%.`, 'INFO', player.id);
+          addLog(`Blangko e-KTP habis! ${player.name} terpaksa bayar calo Rp 3.000.000 dan stres naik +15%.`, 'INFO', player.id);
         }
         break;
       }
 
       case 'EVENT_MUSIBAH': {
         soundManager.playSirenOTT();
-        // Check if player owns Surat Tanah
-        const ownedTiles = perimeterTiles.filter(t => player.ownedProperties.includes(t.id));
-        if (ownedTiles.length > 0) {
-          // The state seizes one Surat Tanah!
-          const chosenTile = ownedTiles[Math.floor(Math.random() * ownedTiles.length)];
-          
-          // Clear ownership of the confiscated tile
-          setPerimeterTiles(prev => prev.map(t => t.id === chosenTile.id ? { ...t, ownerId: null, level: 1 } : t));
-          
-          setPlayers(prev => prev.map(p => {
-            if (p.id === player.id) {
-              const updated = {
-                ...p,
-                ownedProperties: p.ownedProperties.filter(id => id !== chosenTile.id),
-                stress: Math.min(100, p.stress + 20)
-              };
-              checkStressThreshold(updated);
-              return updated;
-            }
-            return p;
-          }));
-
-          setMusibahConfiscatedTile(chosenTile);
-          setMusibahFine(0);
-          setShowMusibahModal(true);
-
-          addLog(`🚨 RAMPASAN NEGARA! Satgas & PSN resmi mencabut dan menyita Surat Tanah ${chosenTile.certificateTitle || chosenTile.name} milik ${player.name}! Stres +20%.`, 'DANGER', player.id);
-        } else {
-          // Player has no Surat Tanah: pay emergency fine
-          const inflationFactor = 1 + (macro.inflationRate / 100);
-          const fineAmount = Math.round(1_500_000 * inflationFactor);
-          
-          if (player.cash < fineAmount) {
-            handlePlayerBankruptcy(player, `Tidak sanggup melunasi retribusi musibah & denda darurat negara sebesar ${formatRupiah(fineAmount)}`);
-            return;
-          }
-
-          setPlayers(prev => prev.map(p => {
-            if (p.id === player.id) {
-              const updated = {
-                ...p,
-                cash: p.cash - fineAmount,
-                stress: Math.min(100, p.stress + 15)
-              };
-              checkStressThreshold(updated);
-              return updated;
-            }
-            return p;
-          }));
-
-          setMusibahConfiscatedTile(null);
-          setMusibahFine(fineAmount);
-          setShowMusibahModal(true);
-
-          addLog(`⚠️ EVENT MUSIBAH! ${player.name} tidak memiliki Surat Tanah. Kena denda retribusi bencana ${formatRupiah(fineAmount)}! Stres +15%.`, 'DANGER', player.id);
-        }
+        setActiveDrawCardEvent({
+          type: 'MUSIBAH',
+          cardsPool: MUSIBAH_EVENT_CARDS
+        });
         break;
       }
 
       case 'EVENT_TAKDIR': {
         soundManager.playCash();
-        const outcomes: TakdirOutcome[] = [
-          {
-            id: 'ganti_untung_tol',
-            title: 'Ganti Untung Proyek Jalan Tol Trans-Pulau',
-            headline: 'PEMBEBASAN LAHAN JALAN TOL!',
-            description: player.ownedProperties.length > 0
-              ? `Lahan Surat Tanah milik ${player.name} dilintasi jalan tol nasional! Negara membayarkan ganti untung kompensasi berlipat!`
-              : `Pemerintah menyalurkan stimulus pemerataan ekonomi daerah kepada ${player.name}!`,
-            cashBonus: player.ownedProperties.length > 0 ? Math.max(3_500_000, player.ownedProperties.length * 1_500_000) : 2_000_000,
-            stressReduction: 15,
-            politicalBonus: 10
-          },
-          {
-            id: 'warisan_sultan',
-            title: 'Warisan Sultan & Tanah Adat Keraton',
-            headline: 'DURIAN RUNTUH WARISAN SULTAN!',
-            description: `Ditemukan dokumen silsilah keraton kuno yang sah! ${player.name} berhak atas hibah bagi hasil tanah ulayat keluarga besar.`,
-            cashBonus: 3_000_000,
-            stressReduction: 20,
-            politicalBonus: 5
-          },
-          {
-            id: 'pemekaran_dob',
-            title: 'Pemekaran Daerah Otonom Baru (DOB)',
-            headline: 'HOKI PEMEKARAN DAERAH OTONOM BARU!',
-            description: `Daerah domisili ${player.name} resmi dimekarkan menjadi provinsi baru! Mendapat alokasi dana stimulus dan pengaruh politik.`,
-            cashBonus: 2_500_000,
-            stressReduction: 10,
-            politicalBonus: 20
-          },
-          {
-            id: 'investor_konglomerat',
-            title: 'Suntikan Kemitraan CSR Konglomerat',
-            headline: 'DANA KEMITRAAN KONGLOMERAT!',
-            description: `Taipan konglomerat nasional terkesan dengan ketahanan ${player.name} dan mengucurkan dana kemitraan bergulir!`,
-            cashBonus: 2_500_000,
-            stressReduction: 25,
-            politicalBonus: 15
-          }
-        ];
-
-        const chosen = outcomes[Math.floor(Math.random() * outcomes.length)];
-
-        setPlayers(prev => prev.map(p => {
-          if (p.id === player.id) {
-            return {
-              ...p,
-              cash: p.cash + chosen.cashBonus,
-              stress: Math.max(0, p.stress - chosen.stressReduction),
-              politicalInfluence: Math.min(100, p.politicalInfluence + chosen.politicalBonus)
-            };
-          }
-          return p;
-        }));
-
-        setTakdirOutcome(chosen);
-        setShowTakdirModal(true);
-
-        addLog(`🎲 EVENT TAKDIR! ${player.name} mendapatkan: ${chosen.title} (+${formatRupiah(chosen.cashBonus)}, Stres -${chosen.stressReduction}%)!`, 'CASH', player.id);
+        setActiveDrawCardEvent({
+          type: 'TAKDIR',
+          cardsPool: TAKDIR_EVENT_CARDS
+        });
         break;
       }
 
@@ -719,10 +803,10 @@ export default function App() {
         soundManager.playCash();
         setPlayers(prev => prev.map(p => p.id === player.id ? {
           ...p,
-          cash: p.cash + 1_500_000,
+          cash: p.cash + 15_000_000,
           stress: Math.max(0, p.stress - 10)
         } : p));
-        addLog(`Rezeki nomplok! ${player.name} dapat Bansos Beras senilai Rp 1,5 Jt dan Stres reda.`, 'CASH', player.id);
+        addLog(`Rezeki nomplok! ${player.name} dapat Bansos Beras & Tunai senilai Rp 15 Jt dan Stres reda.`, 'CASH', player.id);
         break;
       }
 
@@ -824,6 +908,103 @@ export default function App() {
     setActiveDilemmaCard(null);
   };
 
+  // Handle outcome from 3D DrawCardModal (Musibah / Takdir with 3-tier dice roll)
+  const handleConfirmDrawCardOutcome = (outcome: {
+    card: EventOutcomeCard;
+    diceValue: number;
+    confiscatedTile: BoardTile | null;
+    usedSpecialCardId?: string;
+  }) => {
+    if (!activePlayer) return;
+    const { card, confiscatedTile, usedSpecialCardId } = outcome;
+
+    // Confiscate land deed if state seized it
+    if (confiscatedTile) {
+      setPerimeterTiles(prev => prev.map(t => t.id === confiscatedTile.id ? { ...t, ownerId: null, level: 1 } : t));
+      addLog(`🚨 SITA NEGARA! Surat Tanah ${confiscatedTile.certificateTitle || confiscatedTile.name} milik ${activePlayer.name} resmi dicabut & disita oleh Satgas BPN!`, 'DANGER', activePlayer.id);
+    }
+
+    if (usedSpecialCardId) {
+      addLog(`🛡️ KARTU SAKTI AKTIF! ${activePlayer.name} menggunakan kartu proteksi ordal sehingga selamat dari penyitaan tanah!`, 'POLITIC', activePlayer.id);
+    }
+
+    // Cash adjustment (taking inflation into account for penalties)
+    let netCashChange = 0;
+    if (card.cashChange < 0) {
+      if (confiscatedTile) {
+        netCashChange = 0; // Land deed was surrendered in lieu of cash penalty
+      } else {
+        const inflationFactor = 1 + (macro.inflationRate / 100);
+        netCashChange = Math.round(card.cashChange * inflationFactor);
+      }
+    } else {
+      netCashChange = card.cashChange;
+    }
+
+    const specialReward = card.specialRewardCard;
+
+    setPlayers(prev => prev.map(p => {
+      if (p.id === activePlayer.id) {
+        let updatedProps = p.ownedProperties;
+        if (confiscatedTile) {
+          updatedProps = updatedProps.filter(id => id !== confiscatedTile.id);
+        }
+
+        let updatedSpecialCards = [...(p.specialCards || [])];
+        if (usedSpecialCardId) {
+          const idx = updatedSpecialCards.findIndex(c => c.id === usedSpecialCardId);
+          if (idx !== -1) updatedSpecialCards.splice(idx, 1);
+        }
+        if (specialReward) {
+          const newCardInstance: SpecialCardItem = {
+            ...specialReward,
+            id: `${specialReward.id}_${Date.now()}`
+          };
+          updatedSpecialCards.push(newCardInstance);
+        }
+
+        const newCash = p.cash + netCashChange;
+        const newStress = Math.min(100, Math.max(0, p.stress + card.stressChange));
+        const newPol = Math.min(100, Math.max(0, p.politicalInfluence + (card.politicalChange || 0)));
+
+        const updatedPlayer: Player = {
+          ...p,
+          cash: newCash,
+          stress: newStress,
+          politicalInfluence: newPol,
+          ownedProperties: updatedProps,
+          specialCards: updatedSpecialCards,
+          stats: { ...p.stats, cardsDrawn: p.stats.cardsDrawn + 1 }
+        };
+
+        if (newCash < 0) {
+          setTimeout(() => {
+            handlePlayerBankruptcy(updatedPlayer, `Bangkrut tidak sanggup membayar kerugian ${card.title} (${formatRupiah(Math.abs(netCashChange))})`);
+          }, 300);
+        } else {
+          checkStressThreshold(updatedPlayer);
+        }
+
+        return updatedPlayer;
+      }
+      return p;
+    }));
+
+    if (specialReward) {
+      addLog(`🎁 KARTU SAKTI DIPEROLEH! ${activePlayer.name} menerima item berharga: ${specialReward.title}!`, 'POLITIC', activePlayer.id);
+    }
+
+    const tierDesc = outcome.diceValue <= 2 
+      ? '🎲 DADU [1-2] TIER BERAT / REZEKI AKBAR' 
+      : outcome.diceValue <= 4 
+        ? '🎲 DADU [3-4] TIER SEDANG' 
+        : '🎲 DADU [5-6] TIER RINGAN';
+    const logType = card.eventType === 'MUSIBAH' ? 'DANGER' : 'CASH';
+    addLog(`${tierDesc} • ${card.title}: ${card.headline}`, logType, activePlayer.id);
+
+    setActiveDrawCardEvent(null);
+  };
+
   // Corruption Audit Resolve (BPK & KPK)
   const handleCorruptionAuditResolve = (caught: boolean) => {
     setShowCorruptionAudit(false);
@@ -832,10 +1013,10 @@ export default function App() {
     if (caught) {
       soundManager.playSirenOTT();
 
-      // Rule: Tertangkap oleh KPK tanpa bisa memberi uang suap (Rp 2 Jt) -> Langsung Tersingkir!
-      const bribeRequired = 2_000_000;
+      // Rule: Tertangkap oleh KPK tanpa bisa memberi uang suap (Rp 20 Jt) -> Langsung Tersingkir!
+      const bribeRequired = 20_000_000;
       if (activePlayer.cash < bribeRequired) {
-        handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa sanggup membayar uang suap Rp 2.000.000');
+        handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa sanggup membayar uang suap Rp 20.000.000');
         return;
       }
 
@@ -849,7 +1030,7 @@ export default function App() {
           isInCorruptionRoute: false,
           position: 21 // safely arrives at Senayan
         } : p));
-        addLog(`${activePlayer.name} menyuap oknum penyidik KPK sebesar Rp 2.000.000! Selamat dari vonis penjara dan lolos ke DPR Senayan.`, 'CASH', activePlayer.id);
+        addLog(`${activePlayer.name} menyuap oknum penyidik KPK sebesar Rp 20.000.000! Selamat dari vonis penjara dan lolos ke DPR Senayan.`, 'CASH', activePlayer.id);
       } else {
         // Human player gets the prompt to pay bribe or refuse
         setShowKpkBribe(true);
@@ -873,9 +1054,9 @@ export default function App() {
   const handlePayKpkBribe = () => {
     setShowKpkBribe(false);
     if (!activePlayer || activePlayer.isBankrupt) return;
-    const bribeAmount = 2_000_000;
+    const bribeAmount = 20_000_000;
     if (activePlayer.cash < bribeAmount) {
-      handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa memiliki uang suap Rp 2.000.000');
+      handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa memiliki uang suap Rp 20.000.000');
       return;
     }
 
@@ -889,7 +1070,7 @@ export default function App() {
       stress: Math.max(0, p.stress - 10)
     } : p));
 
-    addLog(`${activePlayer.name} membayar uang suap Rp 2.000.000 ke oknum penyidik! Bebas dari OTT KPK dan tiba di DPR Senayan.`, 'CASH', activePlayer.id);
+    addLog(`${activePlayer.name} membayar uang suap Rp 20.000.000 ke oknum penyidik! Bebas dari OTT KPK dan tiba di DPR Senayan.`, 'CASH', activePlayer.id);
   };
 
   // Refuse KPK Bribe Handler
@@ -897,8 +1078,8 @@ export default function App() {
     setShowKpkBribe(false);
     if (!activePlayer || activePlayer.isBankrupt) return;
 
-    if (activePlayer.cash < 2_000_000) {
-      handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa sanggup membayar uang suap Rp 2.000.000');
+    if (activePlayer.cash < 20_000_000) {
+      handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa sanggup membayar uang suap Rp 20.000.000');
       return;
     }
 
@@ -928,7 +1109,7 @@ export default function App() {
   // Pay Jail Bribe
   const handlePayJailBribe = () => {
     if (!activePlayer || !activePlayer.inJail || activePlayer.isBankrupt) return;
-    const bribeAmount = 2_000_000;
+    const bribeAmount = 20_000_000;
     if (activePlayer.cash < bribeAmount) return;
 
     soundManager.playCash();
@@ -940,7 +1121,7 @@ export default function App() {
       stress: Math.max(0, p.stress - 15)
     } : p));
 
-    addLog(`${activePlayer.name} menyuap sipir Lapas sebesar Rp 2 Jt! Mendapat remisi kilat dan langsung bebas.`, 'CASH', activePlayer.id);
+    addLog(`${activePlayer.name} menyuap sipir Lapas sebesar Rp 20 Jt! Mendapat remisi kilat dan langsung bebas.`, 'CASH', activePlayer.id);
   };
 
   // Pass Public Law in DPR Senayan
@@ -959,14 +1140,14 @@ export default function App() {
     if (proposal.effectType === 'BANSOS_ORDAL') {
       setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
         ...p,
-        cash: p.cash + 4_500_000
+        cash: p.cash + 45_000_000
       } : p));
-      addLog(`${activePlayer.name} mencairkan Dana Aspirasi Dapil sebesar Rp 4,5 Jt!`, 'CASH', activePlayer.id);
+      addLog(`${activePlayer.name} mencairkan Dana Aspirasi Dapil sebesar Rp 45 Jt!`, 'CASH', activePlayer.id);
     } else if (proposal.effectType === 'LUXURY_TAX') {
-      // Collect 15% cash from other players who have > 8 Jt
+      // Collect 15% cash from other players who have > 80 Jt
       let totalCollected = 0;
       setPlayers(prev => prev.map(p => {
-        if (p.id !== activePlayer.id && !p.isBankrupt && p.cash > 8_000_000) {
+        if (p.id !== activePlayer.id && !p.isBankrupt && p.cash > 80_000_000) {
           const tax = Math.round(p.cash * 0.15);
           totalCollected += tax;
           return { ...p, cash: p.cash - tax };
@@ -998,7 +1179,7 @@ export default function App() {
 
   // End Turn Engine
   const handleEndTurn = () => {
-    if (!activePlayer) return;
+    if (!activePlayer || isRolling || isMoving) return;
 
     // Check stress on active player before turn concludes
     checkStressThreshold(activePlayer);
@@ -1060,57 +1241,68 @@ export default function App() {
     const weekNumber = (((Math.floor((nextRound - 1) / 2)) % 4) + 1);
     const isNewMonth = (nextRound - 1) % 8 === 0 && nextRound > 1;
 
-    setMacro(prev => {
-      let nextMonth = prev.monthIndex;
-      let nextYear = prev.year;
+    let nextMonth = macro.monthIndex;
+    let nextYear = macro.year;
 
-      if (isNewMonth) {
-        nextMonth = (prev.monthIndex % 12) + 1;
-        if (nextMonth === 1) nextYear = prev.year + 1;
-      }
+    if (isNewMonth) {
+      nextMonth = (macro.monthIndex % 12) + 1;
+      if (nextMonth === 1) nextYear = macro.year + 1;
+    }
 
-      let newInflation = prev.inflationRate;
-      let newBi = prev.biRate;
-      let newUsd = prev.usdIdrRate;
-      let newTrend = prev.trend;
+    let newInflation = macro.inflationRate;
+    let newBi = macro.biRate;
+    let newUsd = macro.usdIdrRate;
+    let newTrend = macro.trend;
 
-      // Only fluctuate inflation when an entire month passes (every 8 rounds)
-      if (isNewMonth) {
-        const inflationDelta = Number((Math.random() * 1.6 - 0.7).toFixed(1));
-        newInflation = Math.max(2.5, Math.min(18.0, Number((prev.inflationRate + inflationDelta).toFixed(1))));
-        
-        const biDelta = Number((Math.random() * 0.5 - 0.2).toFixed(2));
-        newBi = Math.max(4.5, Math.min(10.0, Number((prev.biRate + biDelta).toFixed(2))));
+    // Only fluctuate inflation when an entire month passes (every 8 rounds)
+    if (isNewMonth) {
+      const inflationDelta = Number((Math.random() * 1.6 - 0.7).toFixed(1));
+      newInflation = Math.max(2.5, Math.min(18.0, Number((macro.inflationRate + inflationDelta).toFixed(1))));
+      
+      const biDelta = Number((Math.random() * 0.5 - 0.2).toFixed(2));
+      newBi = Math.max(4.5, Math.min(10.0, Number((macro.biRate + biDelta).toFixed(2))));
 
-        const usdDelta = Math.round(Math.random() * 300 - 100);
-        newUsd = Math.max(15200, Math.min(18000, prev.usdIdrRate + usdDelta));
+      const usdDelta = Math.round(Math.random() * 300 - 100);
+      newUsd = Math.max(15200, Math.min(18000, macro.usdIdrRate + usdDelta));
 
-        if (newInflation > 10.0) newTrend = 'CRISIS';
-        else if (newInflation > 7.0) newTrend = 'VOLATILE';
-        else if (inflationDelta > 0.4) newTrend = 'RISING';
-        else newTrend = 'STABLE';
+      if (newInflation > 10.0) newTrend = 'CRISIS';
+      else if (newInflation > 7.0) newTrend = 'VOLATILE';
+      else if (inflationDelta > 0.4) newTrend = 'RISING';
+      else newTrend = 'STABLE';
 
-        setMonthNotice({
-          monthName: MONTH_NAMES[nextMonth - 1],
-          monthIndex: nextMonth,
-          year: nextYear,
-          round: nextRound
-        });
-        soundManager.playCash();
-        addLog(`🗓️ PERGANTIAN BULAN: Memasuki Bulan ${MONTH_NAMES[nextMonth - 1]} ${nextYear} (Putaran #${nextRound})! Laporan inflasi: ${newInflation}%, BI-Rate: ${newBi}%.`, 'SYSTEM');
-      }
-
-      return {
-        ...prev,
-        weekIndex: weekNumber,
+      setMonthNotice({
+        monthName: MONTH_NAMES[nextMonth - 1],
         monthIndex: nextMonth,
         year: nextYear,
-        inflationRate: newInflation,
-        biRate: newBi,
-        usdIdrRate: newUsd,
-        trend: newTrend
-      };
+        round: nextRound
+      });
+      soundManager.playCash();
+      addLog(`🗓️ PERGANTIAN BULAN: Memasuki Bulan ${MONTH_NAMES[nextMonth - 1]} ${nextYear} (Putaran #${nextRound})! Laporan inflasi: ${newInflation}%, BI-Rate: ${newBi}%.`, 'SYSTEM');
+    }
+
+    setMacro({
+      weekIndex: weekNumber,
+      monthIndex: nextMonth,
+      year: nextYear,
+      inflationRate: newInflation,
+      biRate: newBi,
+      usdIdrRate: newUsd,
+      trend: newTrend
     });
+
+    setMacroHistory(prev => [
+      ...prev,
+      {
+        round: nextRound,
+        label: `P${nextRound}`,
+        fullPeriod: `Putaran ${nextRound} · ${MONTH_NAMES[nextMonth - 1]} (W${weekNumber})`,
+        inflationRate: newInflation,
+        usdIdrRate: newUsd,
+        biRate: newBi,
+        trend: newTrend,
+        note: isNewMonth ? `Bulan ${MONTH_NAMES[nextMonth - 1]}` : undefined
+      }
+    ]);
 
     // Check if Active Laws expire
     setActiveLaws(prev => prev.map(l => ({ ...l, durationTurns: l.durationTurns - 1 })).filter(l => l.durationTurns > 0));
@@ -1124,7 +1316,22 @@ export default function App() {
 
       // Apply News Impact
       if (randomNews.impactType === 'INFLATION') {
-        setMacro(m => ({ ...m, inflationRate: Number((m.inflationRate + 2.0).toFixed(1)), trend: 'VOLATILE' }));
+        const bumped = Number((newInflation + 2.0).toFixed(1));
+        const bumpedTrend = bumped > 10.0 ? 'CRISIS' : 'VOLATILE';
+        setMacro(m => ({ ...m, inflationRate: bumped, trend: bumpedTrend }));
+        setMacroHistory(prev => [
+          ...prev,
+          {
+            round: nextRound,
+            label: `P${nextRound}*`,
+            fullPeriod: `Putaran ${nextRound} (Berita Inflasi)`,
+            inflationRate: bumped,
+            usdIdrRate: newUsd + 150,
+            biRate: newBi,
+            trend: bumpedTrend,
+            note: 'Dampak Breaking News Moneter'
+          }
+        ]);
       } else if (randomNews.impactType === 'CORRUPTION_CRACKDOWN') {
         setPlayers(plist => plist.map(p => ({ ...p, kpkSuspicionLevel: Math.min(100, p.kpkSuspicionLevel + 20) })));
       } else if (randomNews.impactType === 'SUBSIDY_CUT') {
@@ -1211,20 +1418,6 @@ export default function App() {
     }
   }, [showCorruptionGate, activePlayer]);
 
-  // Handle AI Auto-Dismiss for Musibah and Takdir Modals
-  useEffect(() => {
-    if (activePlayer?.isAi) {
-      if (showMusibahModal) {
-        const timer = setTimeout(() => setShowMusibahModal(false), 2400);
-        return () => clearTimeout(timer);
-      }
-      if (showTakdirModal) {
-        const timer = setTimeout(() => setShowTakdirModal(false), 2400);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [showMusibahModal, showTakdirModal, activePlayer]);
-
   // Auto-dismiss survival notices
   useEffect(() => {
     if (eliminationNotice) {
@@ -1297,6 +1490,27 @@ export default function App() {
           </button>
 
           <button
+            onClick={handleRestartNewRound}
+            title="Mulai Babak Baru / Reset Permainan"
+            className="min-h-[40px] py-2 px-3 text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Babak Baru</span>
+          </button>
+
+          <button
+            onClick={() => setShowLogsModal(true)}
+            className="min-h-[40px] py-2 px-3 sm:px-3.5 text-xs font-bold text-amber-300 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+            title="Buka Catatan Riwayat Sejarah & Logbook Nasional"
+          >
+            <History className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Riwayat Logbook</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono">
+              {logs.length}
+            </span>
+          </button>
+
+          <button
             onClick={() => setIsStatsOpen(true)}
             className="min-h-[40px] py-2 px-3 sm:px-3.5 text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
           >
@@ -1347,7 +1561,7 @@ export default function App() {
                   Stres {psychologistNotice.player.name} mencapai 100%!
                 </p>
                 <p className="text-xs text-sky-200/90 mt-0.5">
-                  Membayar <strong className="text-amber-300 font-mono">Rp 1.000.000</strong> ke psikiater. Tingkat stres berhasil diredakan 20% menjadi <strong className="text-emerald-300 font-mono">{psychologistNotice.newStress}%</strong>.
+                  Membayar <strong className="text-amber-300 font-mono">Rp 10.000.000</strong> ke psikiater. Tingkat stres berhasil diredakan 20% menjadi <strong className="text-emerald-300 font-mono">{psychologistNotice.newStress}%</strong>.
                 </p>
               </div>
             </div>
@@ -1408,6 +1622,9 @@ export default function App() {
               selectedTile={selectedTile}
               bannerImage={BANNER_IMAGE}
               crestImage={CREST_IMAGE}
+              diceRollAnimation={diceRollAnimation}
+              onRollAnimationComplete={handleRollAnimationComplete}
+              isMoving={isMoving}
             />
           </div>
 
@@ -1418,7 +1635,7 @@ export default function App() {
                 player={activePlayer}
                 currentTile={currentLandingTile}
                 hasRolled={hasRolled}
-                isRolling={isRolling}
+                isRolling={isRolling || isMoving}
                 lastRoll={lastRoll}
                 macro={macro}
                 onRoll={handleRollDice}
@@ -1468,9 +1685,30 @@ export default function App() {
                               <span className="text-[9px] text-rose-400 font-mono">(Lapas)</span>
                             ) : null}
                           </div>
-                          <span className="text-[10px] text-slate-400">
-                            {p.isBankrupt ? 'Telah Tereliminasi' : `Stres ${p.stress}% · Politik ${p.politicalInfluence}`}
-                          </span>
+                          {p.isBankrupt ? (
+                            <span className="text-[10px] text-slate-500">Telah Tereliminasi</span>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-[9px] font-mono">
+                              <span className={p.stress >= 80 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                                Stres {p.stress}%
+                              </span>
+                              <span className="text-slate-600">·</span>
+                              <span className="text-amber-400 font-bold">
+                                Pol {p.politicalInfluence}
+                              </span>
+                              <span className="text-slate-600">·</span>
+                              <span className={`relative inline-flex items-center gap-1 ${p.kpkSuspicionLevel > 60 ? 'text-rose-400 font-extrabold' : p.kpkSuspicionLevel > 50 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
+                                {p.kpkSuspicionLevel > 60 && (
+                                  <span className="relative flex items-center justify-center w-2.5 h-2.5">
+                                    <KPKRadarPingEffect suspicionLevel={p.kpkSuspicionLevel} size="sm" />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping absolute" />
+                                    <span className="w-1 h-1 rounded-full bg-rose-400 relative z-10" />
+                                  </span>
+                                )}
+                                <span>KPK {p.kpkSuspicionLevel}%</span>
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -1489,11 +1727,21 @@ export default function App() {
             </div>
 
             {/* Quick Activity Ticker */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 text-xs">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Kabar Terkini Putaran:
-              </span>
-              <div className="text-slate-300 italic text-[11px] leading-relaxed line-clamp-3">
+            <div 
+              onClick={() => setShowLogsModal(true)}
+              className="bg-slate-900/80 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-3 text-xs transition-all cursor-pointer group shadow-sm"
+              title="Klik untuk membuka Arsip Sejarah & Logbook Nasional Lengkap"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-bold text-slate-400 group-hover:text-amber-400 uppercase tracking-wider flex items-center gap-1.5 transition-colors">
+                  <History className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Kabar Terkini Putaran:</span>
+                </span>
+                <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1 underline underline-offset-2">
+                  <span>Lihat Semua ({logs.length})</span>
+                </span>
+              </div>
+              <div className="text-slate-300 italic text-[11px] leading-relaxed line-clamp-3 group-hover:text-white transition-colors">
                 {logs.length > 0 ? logs[logs.length - 1].message : 'Menunggu kocokan dadu pertama...'}
               </div>
             </div>
@@ -1534,10 +1782,10 @@ export default function App() {
                   const d2 = Math.floor(Math.random() * 6) + 1;
                   handleRollDice(d1, d2, d1 + d2);
                 }}
-                disabled={isRolling}
-                className="min-h-[44px] flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
+                disabled={isRolling || isMoving}
+                className="min-h-[44px] flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>{isRolling ? 'Mengocok...' : 'Kocok Dadu'}</span>
+                <span>{isRolling ? 'Mengocok...' : isMoving ? 'Melangkah...' : 'Kocok Dadu'}</span>
               </button>
             ) : hasRolled ? (
               <>
@@ -1564,7 +1812,7 @@ export default function App() {
                 onClick={handlePayJailBribe}
                 className="min-h-[44px] flex-1 py-2 px-3 bg-rose-900 border border-rose-700 text-rose-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1"
               >
-                <span>Suap Sipir Rp 2 Jt</span>
+                <span>Suap Sipir Rp 20 Jt</span>
               </button>
             ) : null}
 
@@ -1586,6 +1834,7 @@ export default function App() {
         <SetupGameModal 
           onStartGame={handleStartGame} 
           bannerImage={BANNER_IMAGE} 
+          onClose={players.length > 0 && !isGameOver ? () => setIsSetupOpen(false) : undefined}
         />
       )}
 
@@ -1632,29 +1881,20 @@ export default function App() {
       {showKpkBribe && activePlayer && (
         <KPKBribeModal
           player={activePlayer}
-          bribeAmount={2_000_000}
+          bribeAmount={20_000_000}
           onPayBribe={handlePayKpkBribe}
           onRefuseBribe={handleRefuseKpkBribe}
         />
       )}
 
-      {/* 4c. Event Musibah & Rampasan Negara Modal */}
-      {showMusibahModal && activePlayer && (
-        <MusibahModal
+      {/* 4c. Event Musibah & Takdir 3D Draw Card & 3-Tier Dice Outcome Modal */}
+      {activeDrawCardEvent && activePlayer && (
+        <DrawCardModal
           player={activePlayer}
-          confiscatedTile={musibahConfiscatedTile}
-          calamityFine={musibahFine}
-          hasSuratTanah={musibahConfiscatedTile !== null}
-          onConfirm={() => setShowMusibahModal(false)}
-        />
-      )}
-
-      {/* 4d. Event Takdir Nusantara Modal */}
-      {showTakdirModal && activePlayer && takdirOutcome && (
-        <TakdirModal
-          player={activePlayer}
-          outcome={takdirOutcome}
-          onConfirm={() => setShowTakdirModal(false)}
+          eventType={activeDrawCardEvent.type}
+          cardsPool={activeDrawCardEvent.cardsPool}
+          ownedTiles={perimeterTiles.filter(t => activePlayer.ownedProperties.includes(t.id))}
+          onConfirmOutcome={handleConfirmDrawCardOutcome}
         />
       )}
 
@@ -1680,10 +1920,16 @@ export default function App() {
         players={players}
         tiles={[...perimeterTiles, ...corruptionTiles]}
         macro={macro}
+        macroHistory={macroHistory}
+        currentRound={cycleRound}
         logs={logs}
         isOpen={isStatsOpen}
         onClose={() => setIsStatsOpen(false)}
         activePlayerId={activePlayer?.id || 'player_1'}
+        onOpenFullHistory={() => {
+          setIsStatsOpen(false);
+          setShowLogsModal(true);
+        }}
       />
 
       {/* 8. Tile Detail Inspector Modal */}
@@ -1696,13 +1942,23 @@ export default function App() {
         />
       )}
 
-      {/* 9. Game Over & Victory Podium */}
+      {/* 9. Full History Logbook & National Archives Modal */}
+      <GameLogsModal
+        logs={logs}
+        players={players}
+        macro={macro}
+        isOpen={showLogsModal}
+        onClose={() => setShowLogsModal(false)}
+      />
+
+      {/* 10. Game Over & Victory Podium */}
       {isGameOver && (
         <GameOverModal
           players={players}
           tiles={[...perimeterTiles, ...corruptionTiles]}
           macro={macro}
-          onRestart={() => setIsSetupOpen(true)}
+          onRestart={handleRestartNewRound}
+          onQuickRestart={handleQuickRestart}
           reason={gameOverReason}
         />
       )}

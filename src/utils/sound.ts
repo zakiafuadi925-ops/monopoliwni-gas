@@ -47,21 +47,103 @@ export const soundManager = {
     try {
       const ctx = getAudioContext();
       if (!ctx) return;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 6; i++) {
         setTimeout(() => {
           if (!ctx) return;
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'triangle';
-          osc.frequency.setValueAtTime(180 + Math.random() * 120, ctx.currentTime);
-          gain.gain.setValueAtTime(0.12, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.005, ctx.currentTime + 0.06);
+          osc.frequency.setValueAtTime(220 + Math.random() * 160, ctx.currentTime);
+          gain.gain.setValueAtTime(0.14, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.005, ctx.currentTime + 0.05);
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start();
-          osc.stop(ctx.currentTime + 0.06);
-        }, i * 60);
+          osc.stop(ctx.currentTime + 0.05);
+        }, i * 65);
       }
+    } catch {
+      // Ignore
+    }
+  },
+  playDiceLand: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // Primary thud
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(45, now + 0.12);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.14);
+
+      // Secondary clatter bounce
+      setTimeout(() => {
+        if (!ctx) return;
+        const bOsc = ctx.createOscillator();
+        const bGain = ctx.createGain();
+        bOsc.type = 'sine';
+        bOsc.frequency.setValueAtTime(210, ctx.currentTime);
+        bGain.gain.setValueAtTime(0.12, ctx.currentTime);
+        bGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+        bOsc.connect(bGain);
+        bGain.connect(ctx.destination);
+        bOsc.start();
+        bOsc.stop(ctx.currentTime + 0.08);
+      }, 70);
+    } catch {
+      // Ignore
+    }
+  },
+  playPawnStep: (stepIndex = 0) => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      const baseFreq = 320 + ((stepIndex % 8) * 28);
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.3, now + 0.035);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.85, now + 0.08);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch {
+      // Ignore
+    }
+  },
+  playPawnLand: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // Satisfying wooden land click & resonant tone
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(260, now + 0.12);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
     } catch {
       // Ignore
     }

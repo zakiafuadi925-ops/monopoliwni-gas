@@ -1,1 +1,163 @@
 @import "tailwindcss";
+
+/* Crisis Glitch & Shake Keyframes */
+@keyframes crisis-shake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-1.5px, 1px); }
+  20% { transform: translate(1.5px, -1px); }
+  30% { transform: translate(-2px, 0.5px); }
+  40% { transform: translate(2px, -0.5px); }
+  50% { transform: translate(-1px, 1.5px); }
+  60% { transform: translate(1px, -1px); }
+  70% { transform: translate(-1.5px, -0.5px); }
+  80% { transform: translate(1.5px, 0.5px); }
+  90% { transform: translate(-0.5px, 1px); }
+}
+
+@keyframes crisis-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(225, 29, 72, 0.35), inset 0 0 10px rgba(225, 29, 72, 0.15);
+    border-color: rgba(244, 63, 94, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(225, 29, 72, 0.7), inset 0 0 20px rgba(225, 29, 72, 0.35);
+    border-color: rgba(251, 113, 133, 1);
+  }
+}
+
+@keyframes glitch-rgb {
+  0%, 100% {
+    text-shadow: -1.5px -0.5px 0 rgba(239, 68, 68, 0.8), 1.5px 0.5px 0 rgba(6, 182, 212, 0.8);
+  }
+  20% {
+    text-shadow: 2px 0 0 rgba(239, 68, 68, 1), -2px 0 0 rgba(6, 182, 212, 1);
+  }
+  40% {
+    text-shadow: -2px 1px 0 rgba(239, 68, 68, 0.9), 2px -1px 0 rgba(6, 182, 212, 0.9);
+  }
+  60% {
+    text-shadow: 1px -1.5px 0 rgba(239, 68, 68, 0.9), -1px 1.5px 0 rgba(6, 182, 212, 0.9);
+  }
+  80% {
+    text-shadow: -1.5px 0.5px 0 rgba(239, 68, 68, 0.8), 1.5px -0.5px 0 rgba(6, 182, 212, 0.8);
+  }
+}
+
+@keyframes scanline-sweep {
+  0% { transform: translateY(-100%); opacity: 0.6; }
+  50% { opacity: 0.9; }
+  100% { transform: translateY(1000%); opacity: 0.4; }
+}
+
+.animate-crisis-shake {
+  animation: crisis-shake 0.45s ease-in-out infinite;
+}
+
+.animate-crisis-glow {
+  animation: crisis-pulse-glow 1.4s ease-in-out infinite;
+}
+
+.animate-glitch-text {
+  animation: glitch-rgb 0.35s steps(2, start) infinite;
+}
+
+.animate-scanline {
+  animation: scanline-sweep 3s linear infinite;
+}
+
+/* Radar & Vitals Animations */
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes radar-ping {
+  0% { transform: scale(0.6); opacity: 0.95; }
+  50% { opacity: 0.6; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes radar-ping-jitter-1 {
+  0% { transform: scale(0.5); opacity: 0.9; }
+  25% { transform: scale(1.1); opacity: 0.7; }
+  60% { transform: scale(1.9); opacity: 0.25; }
+  85% { opacity: 0; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes radar-ping-jitter-2 {
+  0% { transform: scale(0.4); opacity: 0.85; }
+  15% { transform: scale(0.8); opacity: 0.8; }
+  45% { transform: scale(1.4); opacity: 0.45; }
+  75% { transform: scale(2.2); opacity: 0.1; }
+  100% { transform: scale(2.7); opacity: 0; }
+}
+
+@keyframes radar-danger-glitch {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-1px, 1px); }
+  40% { transform: translate(1px, -1px); }
+  60% { transform: translate(-1px, -0.5px); }
+  80% { transform: translate(1px, 0.5px); }
+}
+
+@keyframes heartbeat-pulse {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.22); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.15); }
+  70% { transform: scale(1); }
+}
+
+@keyframes heartbeat-critical {
+  0%, 100% { transform: scale(1); }
+  12% { transform: scale(1.35); }
+  24% { transform: scale(0.95); }
+  36% { transform: scale(1.25); }
+  48% { transform: scale(1); }
+}
+
+@keyframes ecg-flow {
+  0% { stroke-dashoffset: 200; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 2.2s linear infinite;
+  transform-origin: center center;
+}
+
+.animate-radar-sweep-fast {
+  animation: radar-sweep 1.2s linear infinite;
+  transform-origin: center center;
+}
+
+.animate-radar-ping {
+  animation: radar-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Jittered & Random-pulsing Radar Ping for High OTT Danger (>60%) */
+.animate-radar-ping-jitter-1 {
+  animation: radar-ping-jitter-1 1.7s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+.animate-radar-ping-jitter-2 {
+  animation: radar-ping-jitter-2 2.3s cubic-bezier(0.2, 0.7, 0.4, 1) infinite 0.75s;
+}
+
+.animate-radar-ping-jitter-3 {
+  animation: radar-ping-jitter-1 1.3s cubic-bezier(0.05, 0.9, 0.2, 1) infinite 0.35s;
+}
+
+.animate-radar-glitch-subtle {
+  animation: radar-danger-glitch 0.4s ease-in-out infinite;
+}
+
+.animate-heartbeat {
+  animation: heartbeat-pulse 1.4s ease-in-out infinite;
+}
+
+.animate-heartbeat-fast {
+  animation: heartbeat-critical 0.65s ease-in-out infinite;
+}
+

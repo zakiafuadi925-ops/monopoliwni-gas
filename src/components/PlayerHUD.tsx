@@ -13,6 +13,12 @@ import {
   HeartCrack,
   Coins
 } from 'lucide-react';
+import { 
+  StressIndicator, 
+  PoliticalInfluenceGauge, 
+  KPKRadarGauge,
+  KPKRadarPingEffect
+} from './VitalIndicators';
 
 interface PlayerHUDProps {
   player: Player;
@@ -84,6 +90,24 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
               >
                 {player.title}
               </span>
+              {player.kpkSuspicionLevel > 60 && !player.inJail && (
+                <div 
+                  className="relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/80 text-rose-300 text-[10px] font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)]"
+                  title={`RISIKO TINGGI OTT KPK! Radar Penyadapan: ${player.kpkSuspicionLevel}%`}
+                >
+                  {/* Randomized radar-ping pulse animation around radar icon */}
+                  <div className="relative w-3.5 h-3.5 flex items-center justify-center shrink-0">
+                    <KPKRadarPingEffect suspicionLevel={player.kpkSuspicionLevel} size="sm" />
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400 relative z-10" />
+                  </div>
+                  <span className="font-mono font-black text-rose-400">
+                    RADAR KPK {player.kpkSuspicionLevel}%
+                  </span>
+                  <span className="text-[9px] font-mono text-rose-300 font-extrabold uppercase animate-pulse">
+                    [OTT HAZARD]
+                  </span>
+                </div>
+              )}
               {player.inJail && (
                 <span className="text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800 px-2 py-0.5 rounded flex items-center gap-1">
                   <ShieldAlert className="w-3 h-3 text-rose-400" />
@@ -103,73 +127,10 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
         </div>
 
         {/* Meters: Stress, Political Influence, KPK Radar */}
-        <div className="grid grid-cols-3 sm:flex items-center gap-2 sm:gap-3 text-xs pt-1 sm:pt-0">
-          {/* Stress Meter */}
-          <div 
-            title="Jika mencapai 100%, pemain wajib membayar Rp 10.000.000 ke psikiater untuk menurunkan stres 20%. Jika kehabisan uang, langsung bangkrut!"
-            className="bg-slate-950/60 border border-slate-800 sm:border-0 rounded-lg p-1.5 sm:p-0 sm:w-28 cursor-help"
-          >
-            <div className="flex justify-between text-[10px] sm:text-[11px] mb-1">
-              <span className="text-slate-400 flex items-center gap-1">
-                <HeartCrack className={`w-3.5 h-3.5 ${isStressCritical ? 'text-rose-500 animate-pulse' : 'text-slate-400'}`} />
-                <span className="hidden sm:inline">Stres</span>
-              </span>
-              <span className={`font-mono font-bold ${isStressCritical ? 'text-rose-400' : 'text-slate-200'}`}>
-                {player.stress}%
-              </span>
-            </div>
-            <div className="w-full h-1.5 sm:h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-              <div 
-                className={`h-full transition-all duration-300 ${
-                  player.stress >= 80 ? 'bg-rose-500' : player.stress > 50 ? 'bg-amber-500' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, player.stress)}%` }}
-              />
-            </div>
-            {isStressCritical && (
-              <span className="text-[9px] text-rose-400 block mt-0.5 leading-none font-bold">
-                Psikolog Rp 10 Jt!
-              </span>
-            )}
-          </div>
-
-          {/* Political Influence */}
-          <div className="bg-slate-950/60 border border-slate-800 sm:border-0 rounded-lg p-1.5 sm:p-0 sm:w-28">
-            <div className="flex justify-between text-[10px] sm:text-[11px] mb-1">
-              <span className="text-slate-400 flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">Politik</span>
-              </span>
-              <span className="font-mono font-bold text-amber-300">
-                {player.politicalInfluence}
-              </span>
-            </div>
-            <div className="w-full h-1.5 sm:h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-              <div 
-                className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-300"
-                style={{ width: `${Math.min(100, player.politicalInfluence)}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Radar KPK */}
-          <div className="bg-slate-950/60 border border-slate-800 sm:border-0 rounded-lg p-1.5 sm:p-0 sm:w-24">
-            <div className="flex justify-between text-[10px] sm:text-[11px] mb-1">
-              <span className="text-slate-400 flex items-center gap-1">
-                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-                <span className="hidden sm:inline">KPK</span>
-              </span>
-              <span className="font-mono font-bold text-rose-300">
-                {player.kpkSuspicionLevel}%
-              </span>
-            </div>
-            <div className="w-full h-1.5 sm:h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-              <div 
-                className="h-full bg-rose-600 transition-all duration-300"
-                style={{ width: `${Math.min(100, player.kpkSuspicionLevel)}%` }}
-              />
-            </div>
-          </div>
+        <div className="grid grid-cols-3 sm:flex items-center gap-2 sm:gap-2.5 text-xs pt-1 sm:pt-0">
+          <StressIndicator player={player} variant="hud" interactive={true} />
+          <PoliticalInfluenceGauge player={player} variant="hud" interactive={true} />
+          <KPKRadarGauge player={player} variant="hud" interactive={true} />
         </div>
       </div>
 

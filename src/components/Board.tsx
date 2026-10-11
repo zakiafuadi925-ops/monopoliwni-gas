@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { BoardTile, Player, MacroEconomy, IslandType } from '../types/game';
 import { formatRupiahShort } from '../utils/format';
 import { 
@@ -19,6 +20,8 @@ import {
   Compass,
   FileText
 } from 'lucide-react';
+import { DiceRollOverlay } from './DiceRollOverlay';
+import { PlayerToken } from './PlayerToken';
 
 interface BoardProps {
   perimeterTiles: BoardTile[];
@@ -30,6 +33,14 @@ interface BoardProps {
   selectedTile: BoardTile | null;
   bannerImage: string;
   crestImage: string;
+  diceRollAnimation?: {
+    player: Player;
+    d1: number;
+    d2: number;
+    total: number;
+  } | null;
+  onRollAnimationComplete?: () => void;
+  isMoving?: boolean;
 }
 
 // Map each tile ID 0..27 to grid row (0..7) and col (0..7)
@@ -59,7 +70,10 @@ export const Board: React.FC<BoardProps> = ({
   onTileClick,
   selectedTile,
   bannerImage,
-  crestImage
+  crestImage,
+  diceRollAnimation,
+  onRollAnimationComplete,
+  isMoving = false
 }) => {
   const [boardViewMode, setBoardViewMode] = useState<'GRID' | 'ISLANDS' | 'TRACK'>('GRID');
   const activePlayer = players[activePlayerIndex] || null;
@@ -201,8 +215,10 @@ export const Board: React.FC<BoardProps> = ({
         </div>
       </div>
 
-      {/* VIEW MODE 1: CLASSIC 8x8 GRID (Fluidly Scaled on Mobile) */}
-      {boardViewMode === 'GRID' && (
+      {/* Board View Container with Interactive Overlay Support */}
+      <div className="relative w-full">
+        {/* VIEW MODE 1: CLASSIC 8x8 GRID (Fluidly Scaled on Mobile) */}
+        {boardViewMode === 'GRID' && (
         <div 
           className="grid grid-cols-8 grid-rows-8 gap-0.5 sm:gap-1.5 p-1 sm:p-2.5 md:p-3 bg-slate-950 border-2 border-slate-800 rounded-2xl shadow-2xl overflow-hidden aspect-square w-full"
         >
@@ -272,22 +288,14 @@ export const Board: React.FC<BoardProps> = ({
                 </div>
 
                 {/* Pawns Container */}
-                <div className="flex items-center justify-center gap-0.5 min-h-[14px] sm:min-h-[18px]">
+                <div className="flex items-center justify-center gap-0.5 min-h-[16px] sm:min-h-[20px]">
                   {playersOnThisTile.map(p => (
-                    <div
+                    <PlayerToken
                       key={p.id}
-                      title={`${p.name} (${p.title})`}
-                      style={{ 
-                        borderColor: p.color,
-                        boxShadow: `0 0 6px ${p.color}80` 
-                      }}
-                      className={`
-                        w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center bg-slate-900 border text-[9px] sm:text-xs shadow font-bold transition-transform
-                        ${activePlayer && activePlayer.id === p.id ? 'scale-125 z-10 animate-bounce' : 'scale-100'}
-                      `}
-                    >
-                      <span>{p.avatar}</span>
-                    </div>
+                      player={p}
+                      isActive={activePlayer?.id === p.id}
+                      size="sm"
+                    />
                   ))}
                 </div>
               </div>
@@ -363,16 +371,14 @@ export const Board: React.FC<BoardProps> = ({
                       </div>
 
                       {/* Pawns in corruption route */}
-                      <div className="flex items-center justify-center gap-0.5 min-h-[14px] sm:min-h-[18px] mt-0.5">
+                      <div className="flex items-center justify-center gap-0.5 min-h-[16px] sm:min-h-[20px] mt-0.5">
                         {playersHere.map(p => (
-                          <div
+                          <PlayerToken
                             key={p.id}
-                            title={`${p.name} sedang di Jalur Korupsi!`}
-                            style={{ borderColor: p.color }}
-                            className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center bg-slate-950 border text-[9px] font-bold animate-pulse shadow-md"
-                          >
-                            <span>{p.avatar}</span>
-                          </div>
+                            player={p}
+                            isActive={activePlayer?.id === p.id}
+                            size="sm"
+                          />
                         ))}
                       </div>
                     </div>
@@ -409,8 +415,10 @@ export const Board: React.FC<BoardProps> = ({
                 </div>
 
                 <div className="text-right shrink-0">
-                  <span className="text-[9px] sm:text-[10px] text-slate-400 block">Posisi:</span>
-                  <span className="text-[10px] sm:text-xs font-bold text-amber-300">
+                  <span className="text-[9px] sm:text-[10px] text-slate-400 block">
+                    {isMoving ? 'Melangkah...' : 'Posisi:'}
+                  </span>
+                  <span className={`text-[10px] sm:text-xs font-bold ${isMoving ? 'text-amber-400 animate-pulse' : 'text-amber-300'}`}>
                     #{activePlayer.position}
                   </span>
                 </div>
@@ -526,14 +534,12 @@ export const Board: React.FC<BoardProps> = ({
 
                           <div className="flex items-center -space-x-1">
                             {playersOnThisTile.map(p => (
-                              <div
+                              <PlayerToken
                                 key={p.id}
-                                className="w-5 h-5 rounded-full border bg-slate-900 flex items-center justify-center text-[9px] shadow"
-                                style={{ borderColor: p.color }}
-                                title={p.name}
-                              >
-                                {p.avatar}
-                              </div>
+                                player={p}
+                                isActive={activePlayer?.id === p.id}
+                                size="xs"
+                              />
                             ))}
                           </div>
                         </div>
@@ -596,13 +602,12 @@ export const Board: React.FC<BoardProps> = ({
                       </span>
                       <div className="flex items-center -space-x-1">
                         {playersOnThisTile.map(p => (
-                          <div
+                          <PlayerToken
                             key={p.id}
-                            className="w-5 h-5 rounded-full border bg-slate-900 flex items-center justify-center text-[9px] shadow"
-                            style={{ borderColor: p.color }}
-                          >
-                            {p.avatar}
-                          </div>
+                            player={p}
+                            isActive={activePlayer?.id === p.id}
+                            size="xs"
+                          />
                         ))}
                       </div>
                     </div>
@@ -676,14 +681,12 @@ export const Board: React.FC<BoardProps> = ({
                     {/* Players on this tile */}
                     <div className="flex items-center -space-x-1">
                       {playersOnThisTile.map(p => (
-                        <div
+                        <PlayerToken
                           key={p.id}
-                          className="w-7 h-7 rounded-full border-2 bg-slate-900 flex items-center justify-center text-xs font-bold shadow"
-                          style={{ borderColor: p.color }}
-                          title={p.name}
-                        >
-                          {p.avatar}
-                        </div>
+                          player={p}
+                          isActive={activePlayer?.id === p.id}
+                          size="md"
+                        />
                       ))}
                     </div>
 
@@ -722,9 +725,12 @@ export const Board: React.FC<BoardProps> = ({
 
                     <div className="flex items-center gap-1">
                       {playersHere.map(p => (
-                        <div key={p.id} className="w-6 h-6 rounded-full border-2 bg-slate-900 flex items-center justify-center text-xs" style={{ borderColor: p.color }}>
-                          {p.avatar}
-                        </div>
+                        <PlayerToken
+                          key={p.id}
+                          player={p}
+                          isActive={activePlayer?.id === p.id}
+                          size="sm"
+                        />
                       ))}
                     </div>
                   </div>
@@ -734,6 +740,18 @@ export const Board: React.FC<BoardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Visual Animation Overlay when Dice are Rolled */}
+      {diceRollAnimation && onRollAnimationComplete && (
+        <DiceRollOverlay
+          player={diceRollAnimation.player}
+          dice1={diceRollAnimation.d1}
+          dice2={diceRollAnimation.d2}
+          total={diceRollAnimation.total}
+          onComplete={onRollAnimationComplete}
+        />
+      )}
+      </div>
     </div>
   );
 };

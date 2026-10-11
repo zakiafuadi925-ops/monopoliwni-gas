@@ -3,6 +3,7 @@ import { Player } from '../types/game';
 import { ShieldAlert, AlertTriangle, ArrowRight, Dices, Skull } from 'lucide-react';
 import { soundManager } from '../utils/sound';
 import { formatRupiah } from '../utils/format';
+import { KPKRadarGauge } from './VitalIndicators';
 
 interface CorruptionGateModalProps {
   player: Player;
@@ -43,13 +44,10 @@ export const CorruptionGateModal: React.FC<CorruptionGateModalProps> = ({
             </p>
           </div>
 
-          <div className="bg-amber-950/40 border border-amber-500/40 rounded-xl p-3 text-xs space-y-1.5">
-            <div className="flex items-center gap-1.5 text-amber-300 font-bold">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span>Risiko Saat Ini:</span>
-            </div>
-            <p className="text-slate-300">
-              Radar KPK Anda: <strong className="text-rose-400 font-mono">{player.kpkSuspicionLevel}%</strong>. Semakin sering korupsi, semakin besar peluang tertangkap penyidik BPK & KPK!
+          <div className="space-y-2">
+            <KPKRadarGauge player={player} variant="card" interactive={false} />
+            <p className="text-slate-300 text-xs text-center">
+              Radar KPK Anda: <strong className="text-rose-400 font-mono">{player.kpkSuspicionLevel}%</strong>. Semakin tinggi radar, semakin besar peluang tertangkap penyidik BPK & OTT KPK!
             </p>
           </div>
 
@@ -137,12 +135,25 @@ export const CorruptionAuditModal: React.FC<CorruptionAuditModalProps> = ({
           <h3 className="text-xl font-extrabold text-white mt-1">
             Uji Nasib Penyadapan & Rekening Gendut
           </h3>
+          <div className="mt-3">
+            <KPKRadarGauge player={player} variant="card" interactive={false} />
+          </div>
           <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-            Penyidik sedang menyita berkas pengadaan di kantor! Kocok dadu keberuntungan:
+            Penyidik BPK & KPK sedang menyita berkas pengadaan di kantor! Kocok dadu keberuntungan:
             <br />
-            <strong className="text-amber-300">Angka 4 - 6</strong>: Lolos cuci uang & keluar ke Senayan.
-            <br />
-            <strong className="text-rose-400">Angka 1 - 3</strong>: TERTANGKAP OTT KPK! Harus bayar uang suap Rp 2 Jt atau langsung gugur tereliminasi!
+            {player.kpkSuspicionLevel > 50 ? (
+              <>
+                <strong className="text-amber-300">Angka 5 - 6</strong>: Lolos pemeriksaan dan tembus ke Senayan!
+                <br />
+                <strong className="text-rose-400">Angka 1 - 4 (Radar &gt; 50%)</strong>: TERTANGKAP OTT KPK! Wajib suap Rp 20 Jt atau gugur tereliminasi!
+              </>
+            ) : (
+              <>
+                <strong className="text-amber-300">Angka 4 - 6</strong>: Lolos pemeriksaan dan tembus ke Senayan!
+                <br />
+                <strong className="text-rose-400">Angka 1 - 3</strong>: TERTANGKAP OTT KPK! Wajib suap Rp 20 Jt atau gugur tereliminasi!
+              </>
+            )}
           </p>
         </div>
 

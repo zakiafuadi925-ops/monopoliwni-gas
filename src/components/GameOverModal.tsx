@@ -10,6 +10,7 @@ interface GameOverModalProps {
   tiles: BoardTile[];
   macro: MacroEconomy;
   onRestart: () => void;
+  onQuickRestart?: () => void;
   reason: string;
 }
 
@@ -18,6 +19,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   tiles,
   macro,
   onRestart,
+  onQuickRestart,
   reason
 }) => {
   const inflationFactor = 1 + (macro.inflationRate / 100);
@@ -41,7 +43,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
     return calculateNetWorth(b) - calculateNetWorth(a);
   });
 
-  const winner = sortedPlayers[0];
+  const winner = sortedPlayers[0] || players[0];
 
   useEffect(() => {
     soundManager.playVictory();
@@ -82,14 +84,14 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             Sang Penyintas Terkuat (The Ultimate Survivor):
           </span>
           <h3 className="text-xl font-extrabold text-white mt-1 flex items-center justify-center gap-2">
-            <span>{winner.avatar}</span>
-            <span>{winner.name}</span>
+            <span>{winner?.avatar || '👑'}</span>
+            <span>{winner?.name || 'Pemenang'}</span>
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            {winner.title}
+            {winner?.title || 'Penyintas Tangguh'}
           </p>
           <div className="text-lg font-mono font-black text-emerald-400 mt-2">
-            Kekayaan Akhir: {formatRupiah(calculateNetWorth(winner))}
+            Kekayaan Akhir: {formatRupiah(winner ? calculateNetWorth(winner) : 0)}
           </div>
         </div>
 
@@ -114,7 +116,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                       {p.name} {p.isBankrupt && '(Bangkrut)'}
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      Stres: {p.stress}% · Politik: {p.politicalInfluence}
+                      Stres: {p.stress}% · Politik: {p.politicalInfluence} · Radar KPK: {p.kpkSuspicionLevel}%
                     </span>
                   </div>
                 </div>
@@ -129,14 +131,25 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </div>
         </div>
 
-        {/* Restart Button */}
-        <button
-          onClick={onRestart}
-          className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Main Babak Baru</span>
-        </button>
+        {/* Action Buttons: Main Babak Baru & Quick Restart */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+          {onQuickRestart && (
+            <button
+              onClick={onQuickRestart}
+              className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Main Lagi Cepat</span>
+            </button>
+          )}
+          <button
+            onClick={onRestart}
+            className={`py-3 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${!onQuickRestart ? 'w-full' : ''}`}
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Main Babak Baru</span>
+          </button>
+        </div>
       </div>
     </div>
   );

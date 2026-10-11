@@ -3,6 +3,7 @@ import { Player } from '../types/game';
 import { LAW_PROPOSALS, LawProposal } from '../data/laws';
 import { Crown, Scale, Check, X, Sparkles } from 'lucide-react';
 import { soundManager } from '../utils/sound';
+import { PoliticalInfluenceGauge, getPoliticalCloutInfo } from './VitalIndicators';
 
 interface ParliamentModalProps {
   player: Player;
@@ -40,20 +41,20 @@ export const ParliamentModal: React.FC<ParliamentModalProps> = ({
         </div>
 
         {/* Player Political Power Banner */}
-        <div className="p-4 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-4 bg-slate-950/80 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <span className="text-xs text-slate-400">Anggota Dewan Pengusul:</span>
             <div className="font-bold text-sm text-white flex items-center gap-1.5 mt-0.5">
               <span>{player.avatar}</span>
               <span>{player.name} ({player.title})</span>
             </div>
+            <span className="text-[10px] font-mono text-amber-400 font-bold uppercase tracking-wide">
+              Tingkat Fraksi: {getPoliticalCloutInfo(player.politicalInfluence).tierTitle}
+            </span>
           </div>
 
-          <div className="text-right">
-            <span className="text-xs text-slate-400">Modal Politik Tersedia:</span>
-            <div className="text-lg font-mono font-extrabold text-amber-400">
-              {player.politicalInfluence} / 100
-            </div>
+          <div className="sm:w-44">
+            <PoliticalInfluenceGauge player={player} variant="hud" interactive={false} />
           </div>
         </div>
 

@@ -139,6 +139,18 @@ export interface MacroEconomy {
   year: number;          // 2026
 }
 
+export interface MacroHistoryPoint {
+  round: number;
+  label: string;
+  fullPeriod: string;
+  inflationRate: number;
+  usdIdrRate: number;
+  biRate: number;
+  trend: 'STABLE' | 'RISING' | 'VOLATILE' | 'CRISIS';
+  timestamp?: string;
+  note?: string;
+}
+
 export interface DilemmaCard {
   id: string;
   title: string;

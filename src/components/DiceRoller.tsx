@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dices, RotateCcw } from 'lucide-react';
 import { soundManager } from '../utils/sound';
 
@@ -15,31 +15,31 @@ export const DiceRoller: React.FC<DiceRollerProps> = ({
   disabled,
   lastRoll
 }) => {
-  const [animating, setAnimating] = useState(false);
   const [displayD1, setDisplayD1] = useState(lastRoll?.d1 || 3);
   const [displayD2, setDisplayD2] = useState(lastRoll?.d2 || 4);
 
-  const handleRollClick = () => {
-    if (disabled || isRolling || animating) return;
-
-    soundManager.playDiceRoll();
-    setAnimating(true);
-
-    let counter = 0;
+  // Sync display with rolling state and results
+  useEffect(() => {
+    if (!isRolling) return;
     const interval = setInterval(() => {
       setDisplayD1(Math.floor(Math.random() * 6) + 1);
       setDisplayD2(Math.floor(Math.random() * 6) + 1);
-      counter++;
-      if (counter > 8) {
-        clearInterval(interval);
-        const finalD1 = Math.floor(Math.random() * 6) + 1;
-        const finalD2 = Math.floor(Math.random() * 6) + 1;
-        setDisplayD1(finalD1);
-        setDisplayD2(finalD2);
-        setAnimating(false);
-        onRoll(finalD1, finalD2, finalD1 + finalD2);
-      }
-    }, 50);
+    }, 60);
+    return () => clearInterval(interval);
+  }, [isRolling]);
+
+  useEffect(() => {
+    if (lastRoll) {
+      setDisplayD1(lastRoll.d1);
+      setDisplayD2(lastRoll.d2);
+    }
+  }, [lastRoll]);
+
+  const handleRollClick = () => {
+    if (disabled || isRolling) return;
+    const finalD1 = Math.floor(Math.random() * 6) + 1;
+    const finalD2 = Math.floor(Math.random() * 6) + 1;
+    onRoll(finalD1, finalD2, finalD1 + finalD2);
   };
 
   // Dice dot renderer
@@ -70,7 +70,7 @@ export const DiceRoller: React.FC<DiceRollerProps> = ({
   return (
     <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-2.5 shadow-md">
       {/* Dice Faces */}
-      <div className={`flex items-center gap-2 transition-transform duration-200 ${animating ? 'scale-110 rotate-6' : ''}`}>
+      <div className={`flex items-center gap-2 transition-transform duration-200 ${isRolling ? 'scale-110 rotate-6' : ''}`}>
         {renderDiceFace(displayD1)}
         {renderDiceFace(displayD2)}
       </div>
@@ -78,17 +78,17 @@ export const DiceRoller: React.FC<DiceRollerProps> = ({
       <div className="flex flex-col">
         <button
           onClick={handleRollClick}
-          disabled={disabled || isRolling || animating}
+          disabled={disabled || isRolling}
           className={`
             min-h-[44px] py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md
-            ${disabled || isRolling || animating
+            ${disabled || isRolling
               ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
               : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-950/40 cursor-pointer active:scale-95'
             }
           `}
         >
-          <Dices className={`w-4 h-4 ${animating ? 'animate-spin' : ''}`} />
-          <span>{animating ? 'Mengocok...' : 'Kocok Dadu'}</span>
+          <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
+          <span>{isRolling ? 'Mengocok...' : 'Kocok Dadu'}</span>
         </button>
 
         {lastRoll && (
