@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MacroEconomy, ActiveLaw } from '../types/game';
 import { formatPercent, formatRupiahShort } from '../utils/format';
-import { TrendingUp, AlertTriangle, ShieldCheck, Scale, Landmark, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, AlertTriangle, ShieldCheck, Scale, Landmark, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
 
 interface MacroIndicatorProps {
   macro: MacroEconomy;
@@ -32,29 +32,65 @@ export const MacroIndicator: React.FC<MacroIndicatorProps> = ({
     switch (macro.trend) {
       case 'CRISIS':
         return (
-          <span className="flex items-center gap-1.5 text-[11px] font-bold text-rose-200 bg-rose-950/90 border-2 border-rose-500/90 px-2.5 py-0.5 rounded shadow-[0_0_12px_rgba(244,63,94,0.65)] animate-crisis-shake">
-            <AlertTriangle className="w-3.5 h-3.5 animate-bounce text-rose-400" />
-            <span className="animate-glitch-text tracking-wider uppercase font-black">Krisis</span>
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold text-rose-200 bg-rose-950/90 border-2 border-rose-500/90 px-2.5 py-0.5 rounded shadow-[0_0_12px_rgba(244,63,94,0.65)] animate-crisis-shake">
+              <AlertTriangle className="w-3.5 h-3.5 animate-bounce text-rose-400" />
+              <span className="animate-glitch-text tracking-wider uppercase font-black">Krisis</span>
+            </span>
+            <span 
+              className="hidden md:flex items-center gap-1 text-[10px] font-mono font-bold text-rose-300 bg-rose-950/80 border border-rose-600/80 px-2 py-0.5 rounded-full animate-pulse shadow-sm"
+              title="Ambien Audio: Sirene Polisi OTT Konstan"
+            >
+              <Volume2 className="w-2.5 h-2.5 text-rose-400" />
+              <span>Sirene OTT</span>
+            </span>
+          </div>
         );
       case 'VOLATILE':
         return (
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-950/60 border border-amber-800/80 px-2 py-0.5 rounded">
-            <TrendingUp className="w-3 h-3 text-amber-400" />
-            <span>Gejolak</span>
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-950/60 border border-amber-800/80 px-2 py-0.5 rounded">
+              <TrendingUp className="w-3 h-3 text-amber-400" />
+              <span>Gejolak</span>
+            </span>
+            <span 
+              className="hidden md:flex items-center gap-1 text-[10px] font-mono text-amber-300 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded-full"
+              title="Ambien Audio: Ticker Bursa Panik"
+            >
+              <Volume2 className="w-2.5 h-2.5 text-amber-400" />
+              <span>Ticker Bursa</span>
+            </span>
+          </div>
         );
       case 'RISING':
         return (
-          <span className="flex items-center gap-1 text-[11px] font-medium text-yellow-300 bg-yellow-950/50 border border-yellow-800/50 px-2 py-0.5 rounded">
-            <span>Inflasi Naik</span>
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1 text-[11px] font-medium text-yellow-300 bg-yellow-950/50 border border-yellow-800/50 px-2 py-0.5 rounded">
+              <span>Inflasi Naik</span>
+            </span>
+            <span 
+              className="hidden md:flex items-center gap-1 text-[10px] font-mono text-yellow-300 bg-yellow-950/60 border border-yellow-800/60 px-2 py-0.5 rounded-full"
+              title="Ambien Audio: Lalu Lintas Padat & Klakson"
+            >
+              <Volume2 className="w-2.5 h-2.5 text-yellow-400" />
+              <span>Lalu Lintas Padat</span>
+            </span>
+          </div>
         );
       default:
         return (
-          <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-950/50 border border-emerald-800/50 px-2 py-0.5 rounded">
-            <span>Stabil</span>
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-950/50 border border-emerald-800/50 px-2 py-0.5 rounded">
+              <span>Stabil</span>
+            </span>
+            <span 
+              className="hidden md:flex items-center gap-1 text-[10px] font-mono text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full"
+              title="Ambien Audio: Kerumunan Kota Ramai"
+            >
+              <Volume2 className="w-2.5 h-2.5 text-emerald-400" />
+              <span>Kerumunan Kota</span>
+            </span>
+          </div>
         );
     }
   };

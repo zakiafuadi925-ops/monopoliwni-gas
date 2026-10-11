@@ -239,16 +239,31 @@ export const Board: React.FC<BoardProps> = ({
                 style={{
                   gridRow: row + 1,
                   gridColumn: col + 1,
+                  ...(isCurrentActivePlayerHere && activePlayer ? {
+                    borderColor: activePlayer.color,
+                    boxShadow: `0 0 18px ${activePlayer.color}80, inset 0 0 14px ${activePlayer.color}25`
+                  } : {})
                 }}
                 className={`
                   relative flex flex-col justify-between p-0.5 sm:p-1.5 rounded sm:rounded-lg border cursor-pointer transition-all duration-150 overflow-hidden
                   ${getTileZoneColor(tile)}
                   ${isSelected ? 'ring-2 ring-amber-400 shadow-lg scale-[1.03] z-20' : 'hover:border-slate-500'}
-                  ${isCurrentActivePlayerHere ? 'bg-slate-900/90 shadow-md ring-1 ring-white/60' : ''}
+                  ${isCurrentActivePlayerHere ? 'ring-2 ring-white shadow-xl z-20 scale-[1.02] bg-slate-900/95' : ''}
                 `}
               >
+                {/* Active Player Standing Marker Banner */}
+                {isCurrentActivePlayerHere && activePlayer && (
+                  <div 
+                    className="absolute top-0 inset-x-0 py-0.5 text-center text-[7px] sm:text-[8px] font-black tracking-wider uppercase text-white shadow-md z-30 flex items-center justify-center gap-1 animate-pulse"
+                    style={{ backgroundColor: activePlayer.color }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" />
+                    <span className="truncate">📍 {activePlayer.name}</span>
+                  </div>
+                )}
+
                 {/* Tile Header: Island badge, number, owner indicator & level */}
-                <div className="flex items-center justify-between gap-0.5 w-full">
+                <div className={`flex items-center justify-between gap-0.5 w-full ${isCurrentActivePlayerHere ? 'mt-3 sm:mt-3.5' : ''}`}>
                   <div className="flex items-center gap-0.5">
                     <span className="text-[7px] sm:text-[9px] md:text-xs font-mono font-bold opacity-75">
                       #{tile.id}
@@ -281,14 +296,14 @@ export const Board: React.FC<BoardProps> = ({
                     {tile.shortName}
                   </p>
                   {tile.subtext && !isCorner && (
-                    <span className="text-[7px] sm:text-[9px] md:text-[10px] text-slate-400 font-mono hidden xs:block sm:block mt-0.5 truncate">
+                    <span className="text-[7px] sm:text-[9px] md:text-10px text-slate-400 font-mono hidden xs:block sm:block mt-0.5 truncate">
                       {tile.ownerId ? `${formatRupiahShort(adjRent)}` : tile.price ? formatRupiahShort(adjPrice) : tile.subtext}
                     </span>
                   )}
                 </div>
 
                 {/* Pawns Container */}
-                <div className="flex items-center justify-center gap-0.5 min-h-[16px] sm:min-h-[20px]">
+                <div className="flex items-center justify-center flex-wrap gap-1 min-h-[22px] sm:min-h-[26px] mt-0.5">
                   {playersOnThisTile.map(p => (
                     <PlayerToken
                       key={p.id}
@@ -389,38 +404,64 @@ export const Board: React.FC<BoardProps> = ({
 
             {/* Bottom of Center: Active Player Status & Selection Cue */}
             {activePlayer ? (
-              <div className="bg-slate-950/80 border border-slate-800 rounded-lg sm:rounded-xl p-1.5 sm:p-2.5 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 sm:gap-2">
+              <div 
+                className="bg-slate-950/95 border-2 rounded-lg sm:rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2 shadow-xl backdrop-blur-md transition-all"
+                style={{ 
+                  borderColor: `${activePlayer.color}bb`,
+                  boxShadow: `0 0 18px ${activePlayer.color}35, inset 0 0 12px ${activePlayer.color}15`
+                }}
+              >
+                <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                   <div 
-                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border flex items-center justify-center text-xs sm:text-sm shadow shrink-0"
-                    style={{ borderColor: activePlayer.color, backgroundColor: `${activePlayer.color}20` }}
+                    className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl border-2 flex items-center justify-center text-sm sm:text-lg shadow-md shrink-0"
+                    style={{ borderColor: activePlayer.color, backgroundColor: `${activePlayer.color}25` }}
                   >
                     {activePlayer.avatar}
+                    <span 
+                      className="absolute -bottom-1 -right-1 text-[7px] font-black font-mono text-white px-1 py-0 rounded-full border border-slate-950 shadow-sm leading-tight"
+                      style={{ backgroundColor: activePlayer.color }}
+                    >
+                      {activePlayer.id.startsWith('player_') ? `P${activePlayer.id.replace('player_', '')}` : 'P'}
+                    </span>
                   </div>
-                  <div className="truncate">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] sm:text-xs font-bold text-white truncate">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span 
+                        className="px-1.5 py-0.2 rounded-full text-[7px] sm:text-[8px] font-black uppercase text-white shadow-sm flex items-center gap-1 animate-pulse"
+                        style={{ backgroundColor: activePlayer.color }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" />
+                        <span>GILIRAN AKTIF</span>
+                      </span>
+                      <span className="text-xs sm:text-sm font-extrabold text-white truncate">
                         {activePlayer.name}
                       </span>
                       {activePlayer.isAi && (
-                        <span className="text-[8px] sm:text-[9px] font-mono bg-slate-800 text-slate-400 px-1 py-0.2 rounded">
+                        <span className="text-[8px] font-mono bg-slate-800 text-slate-400 px-1 py-0.2 rounded">
                           AI
                         </span>
                       )}
                     </div>
-                    <span className="text-[9px] sm:text-[10px] text-slate-400 block truncate">
-                      {activePlayer.title}
-                    </span>
+                    <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-slate-300 mt-0.5 truncate">
+                      <span className="text-amber-300 font-bold">{activePlayer.title}</span>
+                      <span>·</span>
+                      <span className="text-emerald-400 font-mono font-bold">{formatRupiahShort(activePlayer.cash)}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
-                  <span className="text-[9px] sm:text-[10px] text-slate-400 block">
-                    {isMoving ? 'Melangkah...' : 'Posisi:'}
+                  <span className="text-[8px] sm:text-[9px] font-mono uppercase text-slate-400 block font-bold">
+                    {isMoving ? 'Melangkah...' : 'Lokasi Petak'}
                   </span>
-                  <span className={`text-[10px] sm:text-xs font-bold ${isMoving ? 'text-amber-400 animate-pulse' : 'text-amber-300'}`}>
-                    #{activePlayer.position}
-                  </span>
+                  <div className="flex items-center justify-end gap-1">
+                    <span className={`text-xs sm:text-sm font-black font-mono ${isMoving ? 'text-amber-400 animate-pulse' : 'text-amber-300'}`}>
+                      #{activePlayer.position}
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] font-medium text-slate-400 max-w-[80px] sm:max-w-[110px] truncate hidden xs:inline">
+                      ({perimeterTiles.find(t => t.id === activePlayer.position)?.shortName || corruptionTiles.find(t => t.id === activePlayer.position)?.shortName || 'Papan'})
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : (

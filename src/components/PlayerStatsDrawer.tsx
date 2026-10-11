@@ -181,17 +181,38 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                           </span>
 
                           <div 
-                            className="w-8 h-8 rounded-xl flex items-center justify-center text-base border"
+                            className="relative w-8 h-8 rounded-xl flex items-center justify-center text-base border shrink-0"
                             style={{ borderColor: p.color, backgroundColor: `${p.color}20` }}
                           >
                             {p.avatar}
+                            {p.id === activePlayerId && (
+                              <span 
+                                className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-white animate-ping"
+                                style={{ backgroundColor: p.color }}
+                              />
+                            )}
                           </div>
 
                           <div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span 
+                                className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded border text-white"
+                                style={{ backgroundColor: `${p.color}50`, borderColor: p.color }}
+                              >
+                                {p.id.startsWith('player_') ? `P${p.id.replace('player_', '')}` : 'P'}
+                              </span>
                               <span className="font-bold text-sm text-white">
                                 {p.name}
                               </span>
+                              {p.id === activePlayerId && (
+                                <span 
+                                  className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded-full text-white animate-pulse flex items-center gap-1"
+                                  style={{ backgroundColor: p.color }}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                  <span>GILIRAN</span>
+                                </span>
+                              )}
                               {p.isAi && (
                                 <span className="text-[9px] bg-slate-800 text-slate-400 px-1 py-0.2 rounded font-mono">
                                   AI

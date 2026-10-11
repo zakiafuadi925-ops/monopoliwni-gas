@@ -65,73 +65,114 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
   const isStressCritical = player.stress >= 80;
 
   return (
-    <div className="bg-slate-900/95 border-2 border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl backdrop-blur-md">
-      {/* Top Row: Player Info & Status Bars */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3 mb-3">
-        {/* Profile */}
-        <div className="flex items-center gap-3">
+    <div 
+      className="bg-slate-900/95 border-2 rounded-2xl p-3 sm:p-4 shadow-xl backdrop-blur-md transition-all"
+      style={{
+        borderColor: `${player.color}80`,
+        boxShadow: `0 0 24px ${player.color}25, 0 10px 25px rgba(0,0,0,0.6)`
+      }}
+    >
+      {/* Turn & Position Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-800/90">
+        <div className="flex items-center gap-2">
+          <span 
+            className="inline-flex items-center gap-1.5 px-2.5 py-0.8 rounded-full text-[10px] font-black uppercase text-white shadow-md border"
+            style={{ backgroundColor: player.color, borderColor: `${player.color}ee` }}
+          >
+            <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
+            <span>GILIRAN AKTIF</span>
+          </span>
+          <span 
+            className="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border shadow-sm text-white"
+            style={{ backgroundColor: `${player.color}40`, borderColor: player.color }}
+          >
+            {player.id.startsWith('player_') ? `P${player.id.replace('player_', '')}` : 'P'}
+          </span>
+          <span className="text-xs font-bold text-slate-200">
+            {player.name}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-300 font-mono bg-slate-950/70 border border-slate-800 px-2 py-0.5 rounded-lg">
+          <span className="text-amber-300 font-bold">📍 Petak #{currentTile.id}</span>
+          <span className="text-slate-600">·</span>
+          <span className="text-slate-300 truncate max-w-[130px] font-medium">{currentTile.shortName || currentTile.name}</span>
+        </div>
+      </div>
+
+      {/* Profile & Financial Status Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-800/80">
+        <div className="flex items-center gap-3 min-w-0">
           <div 
-            className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl sm:text-2xl shadow-lg border-2 shrink-0"
+            className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shadow-xl border-2 shrink-0"
             style={{ 
               borderColor: player.color, 
-              backgroundColor: `${player.color}25` 
+              backgroundColor: `${player.color}25`,
+              boxShadow: `0 0 16px ${player.color}35`
             }}
           >
             {player.avatar}
+            <span 
+              className="absolute -bottom-1 -right-1 text-[8px] font-black font-mono text-white px-1.5 py-0 rounded-full border border-slate-950 shadow-md leading-tight"
+              style={{ backgroundColor: player.color }}
+            >
+              {player.id.startsWith('player_') ? `P${player.id.replace('player_', '')}` : 'P'}
+            </span>
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-extrabold text-base text-white tracking-wide">
+              <h3 className="font-extrabold text-base sm:text-lg text-white tracking-wide truncate">
                 {player.name}
               </h3>
               <span 
-                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: `${player.color}30`, color: player.color }}
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0"
+                style={{ backgroundColor: `${player.color}30`, borderColor: `${player.color}60`, color: player.color }}
               >
                 {player.title}
               </span>
               {player.kpkSuspicionLevel > 60 && !player.inJail && (
                 <div 
-                  className="relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/80 text-rose-300 text-[10px] font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)]"
+                  className="relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/80 text-rose-300 text-[10px] font-bold shadow-[0_0_10px_rgba(244,63,94,0.4)] shrink-0"
                   title={`RISIKO TINGGI OTT KPK! Radar Penyadapan: ${player.kpkSuspicionLevel}%`}
                 >
-                  {/* Randomized radar-ping pulse animation around radar icon */}
                   <div className="relative w-3.5 h-3.5 flex items-center justify-center shrink-0">
                     <KPKRadarPingEffect suspicionLevel={player.kpkSuspicionLevel} size="sm" />
                     <ShieldAlert className="w-3.5 h-3.5 text-rose-400 relative z-10" />
                   </div>
                   <span className="font-mono font-black text-rose-400">
-                    RADAR KPK {player.kpkSuspicionLevel}%
+                    KPK {player.kpkSuspicionLevel}%
                   </span>
                   <span className="text-[9px] font-mono text-rose-300 font-extrabold uppercase animate-pulse">
-                    [OTT HAZARD]
+                    [OTT]
                   </span>
                 </div>
               )}
               {player.inJail && (
-                <span className="text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800 px-2 py-0.5 rounded flex items-center gap-1">
+                <span className="text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800 px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
                   <ShieldAlert className="w-3 h-3 text-rose-400" />
-                  Di Lapas ({player.jailTurnsLeft} giliran)
+                  Di Lapas ({player.jailTurnsLeft}x)
                 </span>
               )}
-            </div>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-base sm:text-lg font-black text-emerald-400 font-mono">
-                {formatRupiah(player.cash)}
-              </span>
-              <span className="text-[11px] text-slate-400">
-                Kas Tunai
-              </span>
             </div>
           </div>
         </div>
 
-        {/* Meters: Stress, Political Influence, KPK Radar */}
-        <div className="grid grid-cols-3 sm:flex items-center gap-2 sm:gap-2.5 text-xs pt-1 sm:pt-0">
-          <StressIndicator player={player} variant="hud" interactive={true} />
-          <PoliticalInfluenceGauge player={player} variant="hud" interactive={true} />
-          <KPKRadarGauge player={player} variant="hud" interactive={true} />
+        {/* Cash Balance Display */}
+        <div className="sm:text-right shrink-0 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-xl">
+          <span className="text-[10px] text-slate-400 block font-medium">
+            Kas Tunai
+          </span>
+          <span className="text-base sm:text-lg font-black text-emerald-400 font-mono block">
+            {formatRupiah(player.cash)}
+          </span>
         </div>
+      </div>
+
+      {/* Full-Width Vital Indicators: Stres, Politik, KPK Radar */}
+      <div className="w-full grid grid-cols-3 gap-2 text-xs border-b border-slate-800/80 pb-3 mb-3">
+        <StressIndicator player={player} variant="hud" interactive={true} />
+        <PoliticalInfluenceGauge player={player} variant="hud" interactive={true} />
+        <KPKRadarGauge player={player} variant="hud" interactive={true} />
       </div>
 
       {/* Action Controls Row */}

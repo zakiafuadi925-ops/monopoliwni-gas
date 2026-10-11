@@ -148,10 +148,10 @@ export const KPKRadarGauge: React.FC<KPKRadarProps> = ({
         className={`
           group relative select-none transition-all
           ${variant === 'hud' 
-            ? 'bg-slate-950/70 border border-slate-800 hover:border-rose-500/60 rounded-xl p-1.5 sm:p-2 sm:w-32 cursor-pointer' 
+            ? 'w-full min-w-0 flex-1 bg-slate-950/70 border border-slate-800 hover:border-rose-500/60 rounded-xl p-1.5 sm:p-2 cursor-pointer' 
             : variant === 'card'
-            ? 'bg-slate-900/90 border border-slate-800 hover:border-rose-500/50 rounded-xl p-2.5 cursor-pointer'
-            : 'bg-slate-950 border border-slate-800 rounded-2xl p-4'
+            ? 'w-full bg-slate-900/90 border border-slate-800 hover:border-rose-500/50 rounded-xl p-2.5 cursor-pointer'
+            : 'w-full bg-slate-950 border border-slate-800 rounded-2xl p-4'
           }
           ${isHighRiskPing ? 'ring-1 ring-rose-500/70 shadow-[0_0_14px_rgba(244,63,94,0.3)] animate-radar-glitch-subtle' : ''}
           ${status.isCritical ? 'ring-1 ring-rose-500/80 shadow-[0_0_16px_rgba(244,63,94,0.4)]' : ''}
@@ -159,16 +159,16 @@ export const KPKRadarGauge: React.FC<KPKRadarProps> = ({
         title={`Radar Penyadapan KPK: ${player.kpkSuspicionLevel}% (${status.label})${isHighRiskPing ? ' - AWAS OTT AKTIF (>60%)!' : ''}`}
       >
         {/* Header row */}
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between mb-1.5 gap-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
             {/* Animated Miniature Radar Scope with Pulsing Radar-Ping */}
-            <div className="relative flex items-center justify-center">
+            <div className="relative flex items-center justify-center shrink-0">
               {/* Radar Ping Pulse when suspicion is above 60% */}
               {isHighRiskPing && (
                 <KPKRadarPingEffect suspicionLevel={player.kpkSuspicionLevel} size="sm" />
               )}
 
-              <div className={`relative w-4 h-4 rounded-full border bg-slate-950 overflow-hidden flex items-center justify-center shrink-0 z-10 ${
+              <div className={`relative w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border bg-slate-950 overflow-hidden flex items-center justify-center shrink-0 z-10 ${
                 isHighRiskPing ? 'border-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'border-rose-500/60'
               }`}>
                 {/* Radar Rings */}
@@ -197,19 +197,19 @@ export const KPKRadarGauge: React.FC<KPKRadarProps> = ({
               </div>
             </div>
 
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 flex items-center gap-1">
-              <span>Radar KPK</span>
-              {isHighRiskPing && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
-                </span>
-              )}
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 truncate">
+              KPK
             </span>
+            {isHighRiskPing && (
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-600"></span>
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-1">
-            <span className={`font-mono text-xs sm:text-xs font-black ${status.color}`}>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <span className={`font-mono text-[11px] sm:text-xs font-black ${status.color}`}>
               {player.kpkSuspicionLevel}%
             </span>
           </div>
@@ -490,27 +490,27 @@ export const StressIndicator: React.FC<StressIndicatorProps> = ({
         className={`
           group relative select-none transition-all
           ${variant === 'hud'
-            ? 'bg-slate-950/70 border border-slate-800 hover:border-rose-500/60 rounded-xl p-1.5 sm:p-2 sm:w-32 cursor-pointer'
+            ? 'w-full min-w-0 flex-1 bg-slate-950/70 border border-slate-800 hover:border-rose-500/60 rounded-xl p-1.5 sm:p-2 cursor-pointer'
             : variant === 'card'
-            ? 'bg-slate-900/90 border border-slate-800 hover:border-rose-500/50 rounded-xl p-2.5 cursor-pointer'
-            : 'bg-slate-950 border border-slate-800 rounded-2xl p-4'
+            ? 'w-full bg-slate-900/90 border border-slate-800 hover:border-rose-500/50 rounded-xl p-2.5 cursor-pointer'
+            : 'w-full bg-slate-950 border border-slate-800 rounded-2xl p-4'
           }
           ${status.isCritical ? 'ring-1 ring-rose-500/60 shadow-[0_0_12px_rgba(244,63,94,0.25)]' : ''}
         `}
         title="Klik untuk melihat Detail Stres Mental & Konsultasi Psikiater"
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between mb-1.5 gap-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
             <HeartCrack 
-              className={`w-3.5 h-3.5 ${status.color} ${status.heartbeatClass}`} 
+              className={`w-3.5 h-3.5 shrink-0 ${status.color} ${status.heartbeatClass}`} 
             />
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-300">
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 truncate">
               Stres
             </span>
           </div>
 
-          <span className={`font-mono text-xs font-black ${status.color}`}>
+          <span className={`font-mono text-[11px] sm:text-xs font-black shrink-0 ${status.color}`}>
             {player.stress}%
           </span>
         </div>
@@ -719,28 +719,28 @@ export const PoliticalInfluenceGauge: React.FC<PoliticalInfluenceProps> = ({
         className={`
           group relative select-none transition-all
           ${variant === 'hud'
-            ? 'bg-slate-950/70 border border-slate-800 hover:border-amber-500/60 rounded-xl p-1.5 sm:p-2 sm:w-32 cursor-pointer'
+            ? 'w-full min-w-0 flex-1 bg-slate-950/70 border border-slate-800 hover:border-amber-500/60 rounded-xl p-1.5 sm:p-2 cursor-pointer'
             : variant === 'card'
-            ? 'bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 rounded-xl p-2.5 cursor-pointer'
-            : 'bg-slate-950 border border-slate-800 rounded-2xl p-4'
+            ? 'w-full bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 rounded-xl p-2.5 cursor-pointer'
+            : 'w-full bg-slate-950 border border-slate-800 rounded-2xl p-4'
           }
         `}
         title="Klik untuk melihat Hak Mengesahkan RUU di DPR Senayan"
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-300">
+        <div className="flex items-center justify-between mb-1.5 gap-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-300 truncate">
               Politik
             </span>
           </div>
 
-          <div className="flex items-baseline gap-0.5">
-            <span className="font-mono text-xs font-black text-amber-300">
+          <div className="flex items-baseline gap-0.5 shrink-0">
+            <span className="font-mono text-[11px] sm:text-xs font-black text-amber-300">
               {player.politicalInfluence}
             </span>
-            <span className="text-[9px] text-slate-500 font-mono">
+            <span className="text-[8px] sm:text-[9px] text-slate-500 font-mono">
               /100
             </span>
           </div>

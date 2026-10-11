@@ -69,6 +69,7 @@ import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
 import { GameLogsModal } from './components/GameLogsModal';
 import { KPKRadarPingEffect } from './components/VitalIndicators';
+import { RentCrisisModal, calculatePropertySellValue } from './components/RentCrisisModal';
 import { MUSIBAH_EVENT_CARDS, TAKDIR_EVENT_CARDS } from './data/eventCards';
 import { EventOutcomeCard, SpecialCardItem } from './types/game';
 
@@ -219,6 +220,24 @@ export default function App() {
   const [showLogsModal, setShowLogsModal] = useState<boolean>(false);
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(false);
 
+  // Rent / Financial Debt Crisis & Asset Liquidation State
+  const [rentCrisis, setRentCrisis] = useState<{
+    crisisType?: 'RENT' | 'EVENT_LOSS' | 'TILE_BILL' | 'BIROKRASI' | 'PSYCHOLOGIST' | 'KPK_BRIBE' | 'DEBT';
+    payer: Player;
+    owner?: Player;
+    tile?: BoardTile;
+    rentCost?: number;
+    amountDue?: number;
+    title?: string;
+    subtitle?: string;
+    description?: string;
+    recipientName?: string;
+    recipientAvatar?: string;
+    recipientColor?: string;
+    causeDesc?: string;
+    onPaySuccess?: (updatedPayer: Player) => void;
+  } | null>(null);
+
   // Survival Notifications
   const [psychologistNotice, setPsychologistNotice] = useState<{
     player: Player;
@@ -259,6 +278,24 @@ export default function App() {
   const alivePlayers = players.filter(p => !p.isBankrupt);
   const aliveCount = alivePlayers.length;
 
+  // Synchronize Macroeconomic Ambient Audio Engine with Trend and Inflation
+  useEffect(() => {
+    soundManager.setMacroeconomicState(macro.trend, macro.inflationRate);
+  }, [macro.trend, macro.inflationRate]);
+
+  // Audio Context unlock on first user gesture
+  useEffect(() => {
+    const handleFirstGesture = () => {
+      soundManager.unlockAudio();
+    };
+    window.addEventListener('pointerdown', handleFirstGesture, { once: true });
+    window.addEventListener('keydown', handleFirstGesture, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstGesture);
+      window.removeEventListener('keydown', handleFirstGesture);
+    };
+  }, []);
+
   // Initialize game from Setup Modal (Survival Mode)
   const handleStartGame = (configuredPlayers: Player[]) => {
     // Reset properties and tiles to clean unowned initial state
@@ -296,6 +333,7 @@ export default function App() {
     setEliminationNotice(null);
     setPsychologistNotice(null);
     setMonthNotice(null);
+    setRentCrisis(null);
     setActiveDilemmaCard(null);
     setActiveDrawCardEvent(null);
     setShowCorruptionGate(false);
@@ -332,6 +370,7 @@ export default function App() {
     setEliminationNotice(null);
     setPsychologistNotice(null);
     setMonthNotice(null);
+    setRentCrisis(null);
     setActiveDilemmaCard(null);
     setActiveDrawCardEvent(null);
     setShowCorruptionGate(false);
@@ -461,8 +500,72 @@ export default function App() {
         });
         return true;
       } else {
-        // Cannot afford psychologist -> Bankrupt & eliminated!
-        handlePlayerBankruptcy(player, 'Stres mencapai 100% dan saldo kas tidak mencukupi untuk membayar biaya psikolog Rp 10.000.000');
+        // Cannot afford psychologist from cash alone!
+        // Check if player has property assets to liquidate
+        const ownedTiles = perimeterTiles.filter(t => t.ownerId === player.id);
+        const totalLiquidation = ownedTiles.reduce((sum, t) => sum + calculatePropertySellValue(t, macro), 0);
+        if (ownedTiles.length > 0 && player.cash + totalLiquidation >= psychologistFee) {
+          if (player.isAi) {
+            let currentCash = player.cash;
+            const soldPropertyIds: number[] = [];
+            const soldPropertyTitles: string[] = [];
+            for (const prop of ownedTiles) {
+              if (currentCash >= psychologistFee) break;
+              const sellVal = calculatePropertySellValue(prop, macro);
+              currentCash += sellVal;
+              soldPropertyIds.push(prop.id);
+              soldPropertyTitles.push(prop.name);
+            }
+            setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+            addLog(`${player.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) seharga ${formatRupiah(currentCash - player.cash)} untuk biaya terapi psikiater Rp 10.000.000!`, 'DANGER', player.id);
+            const updatedStress = Math.max(0, player.stress - 20);
+            setPlayers(prev => prev.map(p => p.id === player.id ? {
+              ...p,
+              cash: currentCash - psychologistFee,
+              stress: updatedStress,
+              ownedProperties: p.ownedProperties.filter(id => !soldPropertyIds.includes(id))
+            } : p));
+            setPsychologistNotice({
+              player: { ...player, cash: currentCash - psychologistFee, stress: updatedStress },
+              fee: psychologistFee,
+              oldStress: player.stress,
+              newStress: updatedStress
+            });
+            return true;
+          } else {
+            // Human player: open crisis modal to liquidate property for psychologist fee!
+            setRentCrisis({
+              crisisType: 'PSYCHOLOGIST',
+              payer: player,
+              amountDue: psychologistFee,
+              title: 'Klinik Jiwa Konoha · Terapi Darurat',
+              subtitle: 'STRES MAKSIMAL 100% · INTERVENSI PSIKOLOG',
+              description: `Tingkat stres Anda mencapai batas kritis 100%! Untuk menyelamatkan diri dari serangan panik, Anda wajib menjalani sesi terapi psikiater darurat seharga Rp 10.000.000. Jual aset tanah untuk melunasi biaya ini.`,
+              causeDesc: 'biaya psikolog darurat Rp 10.000.000',
+              recipientName: 'Klinik Jiwa & Konselor Konoha',
+              recipientAvatar: '🧠',
+              onPaySuccess: (updatedPayer) => {
+                const updatedStress = Math.max(0, updatedPayer.stress - 20);
+                setPlayers(prev => prev.map(p => p.id === updatedPayer.id ? {
+                  ...p,
+                  cash: p.cash - psychologistFee,
+                  stress: updatedStress
+                } : p));
+                addLog(`🧠 INTERVENSI PSIKOLOG! ${updatedPayer.name} melunasi terapi Rp 10.000.000, stres turun 20% menjadi ${updatedStress}%.`, 'INFO', updatedPayer.id);
+                setPsychologistNotice({
+                  player: { ...updatedPayer, cash: updatedPayer.cash - psychologistFee, stress: updatedStress },
+                  fee: psychologistFee,
+                  oldStress: 100,
+                  newStress: updatedStress
+                });
+              }
+            });
+            return true;
+          }
+        }
+
+        // Cannot afford even with all assets sold -> Bankrupt & eliminated!
+        handlePlayerBankruptcy(player, 'Stres mencapai 100% dan seluruh aset tidak mencukupi untuk membayar biaya psikolog Rp 10.000.000');
         return false;
       }
     }
@@ -471,7 +574,7 @@ export default function App() {
 
   // Roll Dice Logic & Visual Animation Engine
   const handleRollDice = (d1: number, d2: number, total: number) => {
-    if (!activePlayer || activePlayer.isBankrupt || hasRolled || isRolling || isMoving) return;
+    if (!activePlayer || activePlayer.isBankrupt || hasRolled || isRolling || isMoving || rentCrisis) return;
 
     setIsRolling(true);
     setLastRoll({ d1, d2, total });
@@ -649,15 +752,71 @@ export default function App() {
 
             // Check if player has enough money to pay rent
             if (player.cash < rentCost) {
-              const remainingPaid = player.cash;
-              setPlayers(prev => prev.map(p => {
-                if (p.id === owner.id) {
-                  return { ...p, cash: p.cash + remainingPaid, stats: { ...p.stats, totalRentEarned: p.stats.totalRentEarned + remainingPaid } };
+              if (player.isAi) {
+                // AI automatic liquidation logic: sell properties until cash >= rentCost or exhausted
+                const aiProperties = perimeterTiles.filter(t => t.ownerId === player.id);
+                let currentAiCash = player.cash;
+                const soldPropertyIds: number[] = [];
+                const soldPropertyTitles: string[] = [];
+
+                for (const prop of aiProperties) {
+                  if (currentAiCash >= rentCost) break;
+                  const sellVal = calculatePropertySellValue(prop, macro);
+                  currentAiCash += sellVal;
+                  soldPropertyIds.push(prop.id);
+                  soldPropertyTitles.push(prop.name);
                 }
-                return p;
-              }));
-              handlePlayerBankruptcy(player, `Tidak mampu membayar sewa ${formatRupiah(rentCost)} kepada ${owner.name}`);
-              return;
+
+                if (currentAiCash >= rentCost) {
+                  // AI survived by selling properties!
+                  setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+                  setPlayers(prev => prev.map(p => {
+                    if (p.id === player.id) {
+                      const updated = {
+                        ...p,
+                        cash: currentAiCash - rentCost,
+                        ownedProperties: p.ownedProperties.filter(id => !soldPropertyIds.includes(id)),
+                        stress: Math.min(100, p.stress + 10),
+                        stats: { ...p.stats, totalRentPaid: p.stats.totalRentPaid + rentCost }
+                      };
+                      checkStressThreshold(updated);
+                      return updated;
+                    }
+                    if (p.id === owner.id) {
+                      return {
+                        ...p,
+                        cash: p.cash + rentCost,
+                        stats: { ...p.stats, totalRentEarned: p.stats.totalRentEarned + rentCost }
+                      };
+                    }
+                    return p;
+                  }));
+                  addLog(`${player.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) untuk melunasi sewa ${formatRupiah(rentCost)} ke ${owner.name}!`, 'DANGER', player.id);
+                  return;
+                } else {
+                  // AI cannot pay even with all properties sold
+                  const remainingPaid = currentAiCash;
+                  if (remainingPaid > 0) {
+                    setPlayers(prev => prev.map(p => {
+                      if (p.id === owner.id) {
+                        return { ...p, cash: p.cash + remainingPaid, stats: { ...p.stats, totalRentEarned: p.stats.totalRentEarned + remainingPaid } };
+                      }
+                      return p;
+                    }));
+                  }
+                  handlePlayerBankruptcy(player, `Tidak mampu membayar sewa ${formatRupiah(rentCost)} kepada ${owner.name}`);
+                  return;
+                }
+              } else {
+                // Human player: open RentCrisisModal to offer asset liquidation choices!
+                setRentCrisis({
+                  payer: player,
+                  owner,
+                  tile,
+                  rentCost
+                });
+                return;
+              }
             }
 
             // Normal rent payment
@@ -720,8 +879,55 @@ export default function App() {
 
         // Check if player can afford the bill
         if (player.cash < adjustedBill) {
-          handlePlayerBankruptcy(player, `Tidak sanggup melunasi tagihan/denda ${tile.name} sebesar ${formatRupiah(adjustedBill)}`);
-          return;
+          if (player.isAi) {
+            const aiOwnedTiles = perimeterTiles.filter(t => t.ownerId === player.id);
+            let currentCash = player.cash;
+            const soldPropertyIds: number[] = [];
+            const soldPropertyTitles: string[] = [];
+            for (const prop of aiOwnedTiles) {
+              if (currentCash >= adjustedBill) break;
+              const sellVal = calculatePropertySellValue(prop, macro);
+              currentCash += sellVal;
+              soldPropertyIds.push(prop.id);
+              soldPropertyTitles.push(prop.name);
+            }
+            if (currentCash >= adjustedBill) {
+              setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+              addLog(`${player.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) untuk membayar tagihan ${tile.name}!`, 'DANGER', player.id);
+              setPlayers(prev => prev.map(p => p.id === player.id ? {
+                ...p,
+                cash: currentCash - adjustedBill,
+                ownedProperties: p.ownedProperties.filter(id => !soldPropertyIds.includes(id)),
+                stress: Math.min(100, p.stress + 10)
+              } : p));
+              return;
+            } else {
+              handlePlayerBankruptcy(player, `Tidak sanggup melunasi tagihan/denda ${tile.name} sebesar ${formatRupiah(adjustedBill)}`);
+              return;
+            }
+          } else {
+            // Human player: open crisis modal to liquidate property
+            setRentCrisis({
+              crisisType: 'TILE_BILL',
+              payer: player,
+              amountDue: adjustedBill,
+              title: tile.name,
+              subtitle: 'KRISIS KAS TUNAI · TAGIHAN FASILITAS PUBLIK',
+              description: `Anda terkena tagihan/retribusi di ${tile.name} sebesar ${formatRupiah(adjustedBill)}. Saldo kas tidak mencukupi, jual aset properti untuk melunasi tagihan ini.`,
+              causeDesc: `tagihan ${tile.name}`,
+              recipientName: tile.name,
+              recipientAvatar: '🏢',
+              onPaySuccess: (updatedPayer) => {
+                setPlayers(prev => prev.map(p => p.id === updatedPayer.id ? {
+                  ...p,
+                  cash: p.cash - adjustedBill,
+                  stress: Math.min(100, p.stress + 10)
+                } : p));
+                addLog(`${updatedPayer.name} melunasi tagihan di ${tile.name} sebesar ${formatRupiah(adjustedBill)}!`, 'CASH', updatedPayer.id);
+              }
+            });
+            return;
+          }
         }
 
         setPlayers(prev => prev.map(p => {
@@ -761,8 +967,55 @@ export default function App() {
         } else {
           soundManager.playBuzzer();
           if (player.cash < 3_000_000) {
-            handlePlayerBankruptcy(player, 'Tidak sanggup membayar calo administrasi di Dukcapil Rp 3.000.000');
-            return;
+            const caloFee = 3_000_000;
+            if (player.isAi) {
+              const aiOwnedTiles = perimeterTiles.filter(t => t.ownerId === player.id);
+              let currentCash = player.cash;
+              const soldPropertyIds: number[] = [];
+              const soldPropertyTitles: string[] = [];
+              for (const prop of aiOwnedTiles) {
+                if (currentCash >= caloFee) break;
+                const sellVal = calculatePropertySellValue(prop, macro);
+                currentCash += sellVal;
+                soldPropertyIds.push(prop.id);
+                soldPropertyTitles.push(prop.name);
+              }
+              if (currentCash >= caloFee) {
+                setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+                addLog(`${player.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) untuk bayar calo Dukcapil Rp 3.000.000!`, 'DANGER', player.id);
+                setPlayers(prev => prev.map(p => p.id === player.id ? {
+                  ...p,
+                  cash: currentCash - caloFee,
+                  ownedProperties: p.ownedProperties.filter(id => !soldPropertyIds.includes(id)),
+                  stress: Math.min(100, p.stress + 15)
+                } : p));
+                return;
+              } else {
+                handlePlayerBankruptcy(player, 'Tidak sanggup membayar calo administrasi di Dukcapil Rp 3.000.000');
+                return;
+              }
+            } else {
+              setRentCrisis({
+                crisisType: 'BIROKRASI',
+                payer: player,
+                amountDue: caloFee,
+                title: 'Kelurahan Dukcapil · Calo Administrasi',
+                subtitle: 'KRISIS KAS TUNAI · BIAYA BIROKRASI',
+                description: `Blangko e-KTP habis! Anda harus membayar jasa calo darurat Rp 3.000.000. Jual aset tanah untuk melunasi biaya dan melanjutkan perjalanan.`,
+                causeDesc: 'calo administrasi di Dukcapil Rp 3.000.000',
+                recipientName: 'Oknum Calo Dukcapil',
+                recipientAvatar: '🏛️',
+                onPaySuccess: (updatedPayer) => {
+                  setPlayers(prev => prev.map(p => p.id === updatedPayer.id ? {
+                    ...p,
+                    cash: p.cash - caloFee,
+                    stress: Math.min(100, p.stress + 15)
+                  } : p));
+                  addLog(`Blangko e-KTP diperoleh! ${updatedPayer.name} melunasi calo Rp 3.000.000 dan stres naik +15%.`, 'INFO', updatedPayer.id);
+                }
+              });
+              return;
+            }
           }
           setPlayers(prev => prev.map(p => {
             if (p.id === player.id) {
@@ -815,6 +1068,124 @@ export default function App() {
         break;
       }
     }
+  };
+
+  // Rent Crisis Handlers for Asset Liquidation
+  const handleSellPropertyForRent = (tileId: number, sellValue: number) => {
+    if (!rentCrisis) return;
+    const soldTile = perimeterTiles.find(t => t.id === tileId);
+    setPerimeterTiles(prev => prev.map(t => t.id === tileId ? { ...t, ownerId: null, level: 1 } : t));
+    setPlayers(prev => prev.map(p => {
+      if (p.id === rentCrisis.payer.id) {
+        const updated = {
+          ...p,
+          cash: p.cash + sellValue,
+          ownedProperties: p.ownedProperties.filter(id => id !== tileId)
+        };
+        setRentCrisis(prevCrisis => prevCrisis ? { ...prevCrisis, payer: updated } : null);
+        return updated;
+      }
+      return p;
+    }));
+    const purpose = rentCrisis.title ? rentCrisis.title : 'utang sewa';
+    addLog(`${rentCrisis.payer.name} menjual aset ${soldTile?.certificateTitle || soldTile?.name || 'Surat Tanah'} seharga ${formatRupiah(sellValue)} untuk melunasi ${purpose}.`, 'CASH', rentCrisis.payer.id);
+  };
+
+  const handleSellAllPropertiesForRent = (sales: { tileId: number; sellValue: number }[]) => {
+    if (!rentCrisis) return;
+    const soldIds = sales.map(s => s.tileId);
+    const totalEarned = sales.reduce((a, b) => a + b.sellValue, 0);
+    setPerimeterTiles(prev => prev.map(t => soldIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+    setPlayers(prev => prev.map(p => {
+      if (p.id === rentCrisis.payer.id) {
+        const updated = {
+          ...p,
+          cash: p.cash + totalEarned,
+          ownedProperties: p.ownedProperties.filter(id => !soldIds.includes(id))
+        };
+        setRentCrisis(prevCrisis => prevCrisis ? { ...prevCrisis, payer: updated } : null);
+        return updated;
+      }
+      return p;
+    }));
+    const purpose = rentCrisis.title ? rentCrisis.title : 'utang sewa';
+    addLog(`${rentCrisis.payer.name} melikuidasi seluruh asetnya (+${formatRupiah(totalEarned)}) untuk melunasi ${purpose}.`, 'DANGER', rentCrisis.payer.id);
+  };
+
+  const handlePayRentFromCrisis = () => {
+    if (!rentCrisis) return;
+    const { payer, owner, rentCost, tile, onPaySuccess, amountDue } = rentCrisis;
+
+    if (onPaySuccess) {
+      const currentPayer = players.find(p => p.id === payer.id) || payer;
+      onPaySuccess(currentPayer);
+      setRentCrisis(null);
+      return;
+    }
+
+    const cost = amountDue ?? rentCost ?? 0;
+    setPlayers(prev => prev.map(p => {
+      if (p.id === payer.id) {
+        const updated = {
+          ...p,
+          cash: p.cash - cost,
+          stress: Math.min(100, p.stress + 10),
+          stats: { ...p.stats, totalRentPaid: p.stats.totalRentPaid + (rentCost || cost) }
+        };
+        checkStressThreshold(updated);
+        return updated;
+      }
+      if (owner && p.id === owner.id) {
+        return {
+          ...p,
+          cash: p.cash + cost,
+          stats: { ...p.stats, totalRentEarned: p.stats.totalRentEarned + cost }
+        };
+      }
+      return p;
+    }));
+    if (owner && tile) {
+      addLog(`${payer.name} melunasi sewa ${formatRupiah(cost)} kepada ${owner.name} untuk ${tile.name}!`, 'CASH', payer.id);
+    } else {
+      addLog(`${payer.name} melunasi kewajiban pembayaran ${formatRupiah(cost)}!`, 'CASH', payer.id);
+    }
+    setRentCrisis(null);
+  };
+
+  const handleBankruptcyFromRentCrisis = () => {
+    if (!rentCrisis) return;
+    const { payer, owner, rentCost, amountDue, causeDesc } = rentCrisis;
+    const cost = amountDue ?? rentCost ?? 0;
+    const remainingPaid = payer.cash;
+    if (owner && remainingPaid > 0) {
+      setPlayers(prev => prev.map(p => {
+        if (p.id === owner.id) {
+          return { ...p, cash: p.cash + remainingPaid, stats: { ...p.stats, totalRentEarned: p.stats.totalRentEarned + remainingPaid } };
+        }
+        return p;
+      }));
+    }
+    const reason = causeDesc 
+      ? `Tidak mampu melunasi ${causeDesc} (${formatRupiah(cost)})`
+      : (owner ? `Tidak mampu membayar sewa ${formatRupiah(cost)} kepada ${owner.name}` : `Tidak mampu melunasi kewajiban ${formatRupiah(cost)}`);
+    handlePlayerBankruptcy(payer, reason);
+    setRentCrisis(null);
+  };
+
+  const handleUseSpecialCardForRent = (cardId: string) => {
+    if (!rentCrisis) return;
+    const { payer, owner, title } = rentCrisis;
+    setPlayers(prev => prev.map(p => {
+      if (p.id === payer.id) {
+        return {
+          ...p,
+          specialCards: p.specialCards?.filter(c => c.id !== cardId)
+        };
+      }
+      return p;
+    }));
+    addLog(`${payer.name} mengaktifkan Kartu Sakti Ordal! Bebas dari tagihan ${title || (owner ? `sewa milik ${owner.name}` : 'kewajiban')}.`, 'POLITIC', payer.id);
+    setRentCrisis(null);
   };
 
   // Buy Property
@@ -896,8 +1267,54 @@ export default function App() {
       chosenOption.apply(activePlayer, stateContext);
 
       // Check bankruptcy or stress threshold after card choice
-      if (activePlayer.cash <= 0) {
-        handlePlayerBankruptcy(activePlayer, 'Konsekuensi Finansial Kartu Dilema Konoha');
+      if (activePlayer.cash < 0) {
+        const deficit = Math.abs(activePlayer.cash);
+        const ownedTiles = perimeterTiles.filter(t => t.ownerId === activePlayer.id);
+        const totalLiquidation = ownedTiles.reduce((sum, t) => sum + calculatePropertySellValue(t, macro), 0);
+        
+        if (activePlayer.isAi) {
+          if (totalLiquidation >= deficit) {
+            let currentCash = activePlayer.cash;
+            const soldPropertyIds: number[] = [];
+            const soldPropertyTitles: string[] = [];
+            for (const prop of ownedTiles) {
+              if (currentCash >= 0) break;
+              const sellVal = calculatePropertySellValue(prop, macro);
+              currentCash += sellVal;
+              soldPropertyIds.push(prop.id);
+              soldPropertyTitles.push(prop.name);
+            }
+            setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+            addLog(`${activePlayer.name} (AI) menjual aset (${soldPropertyTitles.join(', ')}) seharga ${formatRupiah(currentCash - activePlayer.cash)} untuk memulihkan saldo akibat Dilema!`, 'DANGER', activePlayer.id);
+            setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
+              ...p,
+              cash: currentCash,
+              ownedProperties: p.ownedProperties.filter(id => !soldPropertyIds.includes(id))
+            } : p));
+          } else {
+            handlePlayerBankruptcy(activePlayer, 'Konsekuensi Finansial Kartu Dilema Konoha');
+          }
+        } else {
+          // Human player: open crisis modal to liquidate property for deficit!
+          setRentCrisis({
+            crisisType: 'DEBT',
+            payer: { ...activePlayer, cash: 0 },
+            amountDue: deficit,
+            title: activeDilemmaCard?.title || 'Dilema Konoha',
+            subtitle: 'KRISIS KAS TUNAI · KONSEKUENSI DILEMA',
+            description: `Pilihan Dilema Konoha membebani kas sebesar ${formatRupiah(deficit)}. Saldo kas Anda minus! Jual aset tanah untuk melunasi utang ini.`,
+            causeDesc: 'konsekuensi finansial kartu Dilema',
+            recipientName: 'Kas Negara & Risiko Kebijakan',
+            recipientAvatar: '⚖️',
+            onPaySuccess: (updatedPayer) => {
+              setPlayers(prev => prev.map(p => p.id === updatedPayer.id ? {
+                ...p,
+                cash: p.cash - deficit
+              } : p));
+              addLog(`✅ ${updatedPayer.name} melunasi kewajiban akibat Dilema Konoha sebesar ${formatRupiah(deficit)}!`, 'CASH', updatedPayer.id);
+            }
+          });
+        }
       } else {
         checkStressThreshold(activePlayer);
       }
@@ -943,6 +1360,119 @@ export default function App() {
 
     const specialReward = card.specialRewardCard;
 
+    // Check if player has sufficient cash for penalties
+    if (netCashChange < 0) {
+      const penalty = Math.abs(netCashChange);
+      if (activePlayer.cash < penalty) {
+        if (activePlayer.isAi) {
+          const aiOwnedTiles = perimeterTiles.filter(t => t.ownerId === activePlayer.id);
+          let currentCash = activePlayer.cash;
+          const soldPropertyIds: number[] = [];
+          const soldPropertyTitles: string[] = [];
+          for (const prop of aiOwnedTiles) {
+            if (currentCash >= penalty) break;
+            const sellVal = calculatePropertySellValue(prop, macro);
+            currentCash += sellVal;
+            soldPropertyIds.push(prop.id);
+            soldPropertyTitles.push(prop.name);
+          }
+
+          if (currentCash >= penalty) {
+            setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+            addLog(`${activePlayer.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) seharga ${formatRupiah(currentCash - activePlayer.cash)} untuk melunasi kerugian ${card.title}!`, 'DANGER', activePlayer.id);
+
+            setPlayers(prev => prev.map(p => {
+              if (p.id === activePlayer.id) {
+                let updatedProps = p.ownedProperties.filter(id => !soldPropertyIds.includes(id));
+                if (confiscatedTile) updatedProps = updatedProps.filter(id => id !== confiscatedTile.id);
+                let updatedSpecialCards = [...(p.specialCards || [])];
+                if (usedSpecialCardId) {
+                  const idx = updatedSpecialCards.findIndex(c => c.id === usedSpecialCardId);
+                  if (idx !== -1) updatedSpecialCards.splice(idx, 1);
+                }
+                if (specialReward) {
+                  updatedSpecialCards.push({
+                    ...specialReward,
+                    id: `${specialReward.id}_${Date.now()}`
+                  });
+                }
+                const updatedPlayer: Player = {
+                  ...p,
+                  cash: currentCash - penalty,
+                  stress: Math.min(100, Math.max(0, p.stress + card.stressChange)),
+                  politicalInfluence: Math.min(100, Math.max(0, p.politicalInfluence + (card.politicalChange || 0))),
+                  ownedProperties: updatedProps,
+                  specialCards: updatedSpecialCards,
+                  stats: { ...p.stats, cardsDrawn: p.stats.cardsDrawn + 1 }
+                };
+                checkStressThreshold(updatedPlayer);
+                return updatedPlayer;
+              }
+              return p;
+            }));
+            setActiveDrawCardEvent(null);
+            return;
+          } else {
+            handlePlayerBankruptcy(activePlayer, `Bangkrut tidak sanggup membayar kerugian ${card.title} (${formatRupiah(penalty)})`);
+            setActiveDrawCardEvent(null);
+            return;
+          }
+        } else {
+          // Human player: open financial crisis modal to allow property liquidation!
+          setRentCrisis({
+            crisisType: 'EVENT_LOSS',
+            payer: activePlayer,
+            amountDue: penalty,
+            title: card.title,
+            subtitle: 'KRISIS KAS TUNAI · PEMBAYARAN KERUGIAN PERISTIWA',
+            description: `${card.description} Kerugian sebesar ${formatRupiah(penalty)} wajib dilunasi! Kas tunai Anda tidak mencukupi, silakan jual aset tanah Anda untuk menutup kerugian ini.`,
+            causeDesc: `kerugian ${card.title}`,
+            recipientName: card.categoryBadge || 'Kas Darurat & Derek Tol',
+            recipientAvatar: card.icon || '🚗',
+            onPaySuccess: (updatedPayer) => {
+              setPlayers(prev => prev.map(p => {
+                if (p.id === updatedPayer.id) {
+                  let updatedProps = p.ownedProperties;
+                  if (confiscatedTile) {
+                    updatedProps = updatedProps.filter(id => id !== confiscatedTile.id);
+                  }
+                  let updatedSpecialCards = [...(p.specialCards || [])];
+                  if (usedSpecialCardId) {
+                    const idx = updatedSpecialCards.findIndex(c => c.id === usedSpecialCardId);
+                    if (idx !== -1) updatedSpecialCards.splice(idx, 1);
+                  }
+                  if (specialReward) {
+                    updatedSpecialCards.push({
+                      ...specialReward,
+                      id: `${specialReward.id}_${Date.now()}`
+                    });
+                  }
+                  const finalCash = p.cash - penalty;
+                  const finalStress = Math.min(100, Math.max(0, p.stress + card.stressChange));
+                  const finalPol = Math.min(100, Math.max(0, p.politicalInfluence + (card.politicalChange || 0)));
+                  const finalPlayer: Player = {
+                    ...p,
+                    cash: finalCash,
+                    stress: finalStress,
+                    politicalInfluence: finalPol,
+                    ownedProperties: updatedProps,
+                    specialCards: updatedSpecialCards,
+                    stats: { ...p.stats, cardsDrawn: p.stats.cardsDrawn + 1 }
+                  };
+                  checkStressThreshold(finalPlayer);
+                  return finalPlayer;
+                }
+                return p;
+              }));
+              addLog(`✅ ${updatedPayer.name} berhasil melunasi kerugian ${card.title} sebesar ${formatRupiah(penalty)}!`, 'CASH', updatedPayer.id);
+            }
+          });
+          setActiveDrawCardEvent(null);
+          return;
+        }
+      }
+    }
+
     setPlayers(prev => prev.map(p => {
       if (p.id === activePlayer.id) {
         let updatedProps = p.ownedProperties;
@@ -977,13 +1507,7 @@ export default function App() {
           stats: { ...p.stats, cardsDrawn: p.stats.cardsDrawn + 1 }
         };
 
-        if (newCash < 0) {
-          setTimeout(() => {
-            handlePlayerBankruptcy(updatedPlayer, `Bangkrut tidak sanggup membayar kerugian ${card.title} (${formatRupiah(Math.abs(netCashChange))})`);
-          }, 300);
-        } else {
-          checkStressThreshold(updatedPlayer);
-        }
+        checkStressThreshold(updatedPlayer);
 
         return updatedPlayer;
       }
@@ -1013,24 +1537,34 @@ export default function App() {
     if (caught) {
       soundManager.playSirenOTT();
 
-      // Rule: Tertangkap oleh KPK tanpa bisa memberi uang suap (Rp 20 Jt) -> Langsung Tersingkir!
+      // KPK OTT Encounter
       const bribeRequired = 20_000_000;
-      if (activePlayer.cash < bribeRequired) {
-        handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa sanggup membayar uang suap Rp 20.000.000');
-        return;
-      }
-
-      // If AI, automatically pays the bribe to survive
       if (activePlayer.isAi) {
-        soundManager.playCash();
-        setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
-          ...p,
-          cash: p.cash - bribeRequired,
-          kpkSuspicionLevel: 10,
-          isInCorruptionRoute: false,
-          position: 21 // safely arrives at Senayan
-        } : p));
-        addLog(`${activePlayer.name} menyuap oknum penyidik KPK sebesar Rp 20.000.000! Selamat dari vonis penjara dan lolos ke DPR Senayan.`, 'CASH', activePlayer.id);
+        if (activePlayer.cash >= bribeRequired) {
+          soundManager.playCash();
+          setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
+            ...p,
+            cash: p.cash - bribeRequired,
+            kpkSuspicionLevel: 10,
+            isInCorruptionRoute: false,
+            position: 21 // safely arrives at Senayan
+          } : p));
+          addLog(`${activePlayer.name} menyuap oknum penyidik KPK sebesar Rp 20.000.000! Selamat dari vonis penjara dan lolos ke DPR Senayan.`, 'CASH', activePlayer.id);
+        } else {
+          // AI sent to jail
+          setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
+            ...p,
+            cash: Math.round(p.cash * 0.5),
+            stress: Math.min(100, p.stress + 50),
+            inJail: true,
+            jailTurnsLeft: 2,
+            isInCorruptionRoute: false,
+            position: 14,
+            kpkSuspicionLevel: 10,
+            stats: { ...p.stats, timesInJail: p.stats.timesInJail + 1 }
+          } : p));
+          addLog(`${activePlayer.name} (AI) tertangkap OTT KPK & saldo tidak cukup suap! Dijebloskan ke Lapas Sukamiskin.`, 'DANGER', activePlayer.id);
+        }
       } else {
         // Human player gets the prompt to pay bribe or refuse
         setShowKpkBribe(true);
@@ -1056,8 +1590,39 @@ export default function App() {
     if (!activePlayer || activePlayer.isBankrupt) return;
     const bribeAmount = 20_000_000;
     if (activePlayer.cash < bribeAmount) {
-      handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa memiliki uang suap Rp 20.000.000');
-      return;
+      // Offer crisis modal to sell properties if they want to pay the bribe
+      const ownedTiles = perimeterTiles.filter(t => t.ownerId === activePlayer.id);
+      const totalLiquidation = ownedTiles.reduce((sum, t) => sum + calculatePropertySellValue(t, macro), 0);
+      if (activePlayer.cash + totalLiquidation >= bribeAmount) {
+        setRentCrisis({
+          crisisType: 'KPK_BRIBE',
+          payer: activePlayer,
+          amountDue: bribeAmount,
+          title: 'OTT KPK · Uang Pengamanan Perkara',
+          subtitle: 'KRISIS KAS TUNAI · SUAP OKNUM PENYIDIK',
+          description: `Untuk menghindari vonis penjara Lapas Sukamiskin, Anda harus membayar uang suap Rp 20.000.000. Jual aset tanah Anda untuk melunasi uang damai ini.`,
+          causeDesc: 'suap OTT KPK Rp 20.000.000',
+          recipientName: 'Oknum Penyidik KPK',
+          recipientAvatar: '🚨',
+          onPaySuccess: (updatedPayer) => {
+            soundManager.playCash();
+            setPlayers(prev => prev.map(p => p.id === updatedPayer.id ? {
+              ...p,
+              cash: p.cash - bribeAmount,
+              isInCorruptionRoute: false,
+              position: 21,
+              kpkSuspicionLevel: 10,
+              stress: Math.max(0, p.stress - 10)
+            } : p));
+            addLog(`${updatedPayer.name} membayar uang damai Rp 20.000.000 ke oknum penyidik! Bebas dari OTT KPK dan tiba di DPR Senayan.`, 'CASH', updatedPayer.id);
+          }
+        });
+        return;
+      } else {
+        // Cannot afford bribe even with properties -> send to jail instead of unfair elimination
+        handleRefuseKpkBribe();
+        return;
+      }
     }
 
     soundManager.playCash();
@@ -1077,11 +1642,6 @@ export default function App() {
   const handleRefuseKpkBribe = () => {
     setShowKpkBribe(false);
     if (!activePlayer || activePlayer.isBankrupt) return;
-
-    if (activePlayer.cash < 20_000_000) {
-      handlePlayerBankruptcy(activePlayer, 'Tertangkap OTT KPK tanpa sanggup membayar uang suap Rp 20.000.000');
-      return;
-    }
 
     // Refused bribe: sent to Lapas Sukamiskin, 50% cash seized, 2 turns locked
     setPlayers(prev => prev.map(p => {
@@ -1179,7 +1739,7 @@ export default function App() {
 
   // End Turn Engine
   const handleEndTurn = () => {
-    if (!activePlayer || isRolling || isMoving) return;
+    if (!activePlayer || isRolling || isMoving || rentCrisis) return;
 
     // Check stress on active player before turn concludes
     checkStressThreshold(activePlayer);
@@ -1483,10 +2043,21 @@ export default function App() {
               const enabled = soundManager.toggle();
               setIsSoundMuted(!enabled);
             }}
-            title={isSoundMuted ? 'Nyalakan Suara' : 'Bisukan Suara'}
-            className="min-h-[40px] min-w-[40px] p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors flex items-center justify-center cursor-pointer"
+            title={isSoundMuted ? 'Nyalakan Audio & Ambien Makro' : `Audio & Ambien Aktif: ${soundManager.getAmbientDescription()}`}
+            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
+              isSoundMuted 
+                ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200' 
+                : 'bg-slate-900/90 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+            }`}
           >
-            {isSoundMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            {isSoundMuted ? (
+              <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : (
+              <Volume2 className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
+            )}
+            <span className="text-[11px] font-mono hidden sm:inline font-bold">
+              {isSoundMuted ? 'Bisu' : 'Ambien On'}
+            </span>
           </button>
 
           <button
@@ -1635,7 +2206,7 @@ export default function App() {
                 player={activePlayer}
                 currentTile={currentLandingTile}
                 hasRolled={hasRolled}
-                isRolling={isRolling || isMoving}
+                isRolling={isRolling || isMoving || !!rentCrisis}
                 lastRoll={lastRoll}
                 macro={macro}
                 onRoll={handleRollDice}
@@ -1664,19 +2235,52 @@ export default function App() {
               <div className="space-y-2">
                 {players.map((p, idx) => {
                   const isCurrent = idx === activePlayerIndex;
+                  const playerTag = p.id.startsWith('player_') ? `P${p.id.replace('player_', '')}` : `P${idx + 1}`;
                   return (
                     <div
                       key={p.id}
+                      style={isCurrent && !p.isBankrupt ? {
+                        borderColor: p.color,
+                        boxShadow: `0 0 16px ${p.color}35`,
+                      } : {}}
                       className={`
-                        p-2 rounded-xl border flex items-center justify-between text-xs transition-all
-                        ${p.isBankrupt ? 'bg-rose-950/20 border-rose-900/50 opacity-60' : isCurrent ? 'bg-slate-800/80 border-amber-400/80 ring-1 ring-amber-400/30' : 'bg-slate-950/60 border-slate-800/80'}
+                        p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all
+                        ${p.isBankrupt ? 'bg-rose-950/20 border-rose-900/50 opacity-60' : isCurrent ? 'bg-slate-800/90 ring-1 ring-white/60' : 'bg-slate-950/60 border-slate-800/80'}
                       `}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{p.avatar}</span>
-                        <div>
-                          <div className="flex items-center gap-1 font-bold text-white">
-                            <span>{p.name}</span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div 
+                          className="relative w-8 h-8 rounded-xl border flex items-center justify-center text-base shrink-0 shadow-sm"
+                          style={{ borderColor: p.color, backgroundColor: `${p.color}25` }}
+                        >
+                          {p.avatar}
+                          {isCurrent && !p.isBankrupt && (
+                            <span 
+                              className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-white animate-ping"
+                              style={{ backgroundColor: p.color }}
+                            />
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span 
+                              className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded border text-white shrink-0"
+                              style={{ backgroundColor: `${p.color}50`, borderColor: p.color }}
+                              title={`Kode Pemain: ${playerTag}`}
+                            >
+                              {playerTag}
+                            </span>
+                            <span className="font-extrabold text-white truncate">{p.name}</span>
+                            {isCurrent && !p.isBankrupt && (
+                              <span 
+                                className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded-full text-white animate-pulse flex items-center gap-1 shrink-0"
+                                style={{ backgroundColor: p.color }}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                <span>GILIRAN</span>
+                              </span>
+                            )}
                             {p.isBankrupt ? (
                               <span className="text-[9px] bg-rose-950 text-rose-400 px-1 py-0.2 rounded font-mono font-bold">
                                 GUGUR
@@ -1688,7 +2292,7 @@ export default function App() {
                           {p.isBankrupt ? (
                             <span className="text-[10px] text-slate-500">Telah Tereliminasi</span>
                           ) : (
-                            <div className="flex items-center gap-1.5 text-[9px] font-mono">
+                            <div className="flex items-center gap-1.5 text-[9px] font-mono mt-0.5">
                               <span className={p.stress >= 80 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
                                 Stres {p.stress}%
                               </span>
@@ -1712,7 +2316,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <span className={`font-mono font-bold block ${p.isBankrupt ? 'text-slate-500 line-through' : 'text-emerald-400'}`}>
                           {formatRupiahShort(p.cash)}
                         </span>
@@ -1960,6 +2564,33 @@ export default function App() {
           onRestart={handleRestartNewRound}
           onQuickRestart={handleQuickRestart}
           reason={gameOverReason}
+        />
+      )}
+
+      {/* 11. Rent & Financial Crisis Property Liquidation Modal */}
+      {rentCrisis && (
+        <RentCrisisModal
+          isOpen={true}
+          payer={rentCrisis.payer}
+          owner={rentCrisis.owner}
+          tile={rentCrisis.tile}
+          rentCost={rentCrisis.rentCost}
+          crisisType={rentCrisis.crisisType}
+          amountDue={rentCrisis.amountDue}
+          title={rentCrisis.title}
+          subtitle={rentCrisis.subtitle}
+          description={rentCrisis.description}
+          recipientName={rentCrisis.recipientName}
+          recipientAvatar={rentCrisis.recipientAvatar}
+          recipientColor={rentCrisis.recipientColor}
+          causeDesc={rentCrisis.causeDesc}
+          perimeterTiles={perimeterTiles}
+          macro={macro}
+          onSellProperty={handleSellPropertyForRent}
+          onSellAllProperties={handleSellAllPropertiesForRent}
+          onPayRent={handlePayRentFromCrisis}
+          onDeclareBankruptcy={handleBankruptcyFromRentCrisis}
+          onUseSpecialCard={handleUseSpecialCardForRent}
         />
       )}
     </div>
