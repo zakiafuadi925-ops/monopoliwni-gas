@@ -38,11 +38,11 @@ export const MacroIndicator: React.FC<MacroIndicatorProps> = ({
               <span className="animate-glitch-text tracking-wider uppercase font-black">Krisis</span>
             </span>
             <span 
-              className="hidden md:flex items-center gap-1 text-[10px] font-mono font-bold text-rose-300 bg-rose-950/80 border border-rose-600/80 px-2 py-0.5 rounded-full animate-pulse shadow-sm"
-              title="Ambien Audio: Sirene Polisi OTT Konstan"
+              className="hidden md:flex items-center gap-1 text-[10px] font-mono font-bold text-rose-300 bg-rose-950/80 border border-rose-600/80 px-2 py-0.5 rounded-full shadow-sm"
+              title="Ambien Audio: Tensi Krisis Moneter & Denyut Darurat (Sirene bising telah dimatikan)"
             >
               <Volume2 className="w-2.5 h-2.5 text-rose-400" />
-              <span>Sirene OTT</span>
+              <span>Tensi Krisis</span>
             </span>
           </div>
         );

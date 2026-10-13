@@ -3,12 +3,33 @@ export interface LawProposal {
   title: string;
   requiredInfluence: number;
   description: string;
-  effectType: 'ANTI_KPK' | 'LUXURY_TAX' | 'UMKM_SUBSIDY' | 'FREE_PARKING' | 'BANSOS_ORDAL';
+  effectType: 'ANTI_KPK' | 'LUXURY_TAX' | 'UMKM_SUBSIDY' | 'FREE_PARKING' | 'BANSOS_ORDAL' | 'PROGRESSIVE_TAX_DRASTIC' | 'ASSET_CONFISCATION_ACT';
   icon: string;
   fluff: string;
+  isCoalitionOnly?: boolean;
 }
 
 export const LAW_PROPOSALS: LawProposal[] = [
+  {
+    id: 'uu_pajak_progresif_drastis',
+    title: 'RUU Pajak Progresif Drastis (Koalisi Parlemen)',
+    requiredInfluence: 65,
+    effectType: 'PROGRESSIVE_TAX_DRASTIC',
+    isCoalitionOnly: true,
+    icon: '⚖️',
+    description: 'Pajak kekayaan drastis 25% dipungut serentak dari seluruh rival non-koalisi! Total hasil pajak dibagi rata 50:50 ke rekening kedua anggota koalisi, dan seluruh rival terkena stres +20%.',
+    fluff: '"Dua fraksi mayoritas bersekutu menekan para oligarki oposisi."'
+  },
+  {
+    id: 'uu_penyitaan_aset',
+    title: 'RUU Perampasan & Sita Aset Rival (Koalisi Parlemen)',
+    requiredInfluence: 75,
+    effectType: 'ASSET_CONFISCATION_ACT',
+    isCoalitionOnly: true,
+    icon: '🏛️',
+    description: 'Mencabut dan menyita 1 sertifikat tanah terbaik milik rival terkaya non-koalisi kembali ke negara, serta mendenda rival Rp 25.000.000 tunai yang dibagi ke kas koalisi! Stres korban melonjak +30%.',
+    fluff: '"Bila koalisi mengetuk palu, tak ada benteng hukum yang tak bisa diruntuhkan."'
+  },
   {
     id: 'uu_anti_kpk',
     title: 'RUU Pelemahan Wewenang Penyadapan KPK',
@@ -24,7 +45,7 @@ export const LAW_PROPOSALS: LawProposal[] = [
     requiredInfluence: 50,
     effectType: 'LUXURY_TAX',
     icon: '💰',
-    description: 'Mewajibkan pemain lawan yang memiliki kas > Rp 80 Juta membayar pajak 15% yang ditransfer langsung ke kas Anda!',
+    description: 'Mewajibkan seluruh pemain lawan yang memiliki kas tunai ≥ Rp 50 Juta membayar pajak kekayaan 15% yang ditransfer langsung ke kas Anda!',
     fluff: '"Pemerataan ekonomi berkeadilan sosial bagi kawan satu fraksi."'
   },
   {

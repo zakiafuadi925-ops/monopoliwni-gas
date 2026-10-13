@@ -239,11 +239,11 @@ export const KPKRadarGauge: React.FC<KPKRadarProps> = ({
         </div>
 
         {/* Status Badge & Danger Warning Text */}
-        <div className="flex items-center justify-between text-[9px] mt-1">
-          <span className={`font-bold font-mono tracking-tight px-1 py-0.2 rounded ${status.bgColor} ${status.color}`}>
+        <div className="flex items-center justify-between text-[8px] sm:text-[9px] mt-1 gap-0.5 overflow-hidden">
+          <span className={`font-bold font-mono tracking-tight px-1 py-0.2 rounded truncate max-w-[65%] shrink-0 ${status.bgColor} ${status.color}`}>
             {status.label}
           </span>
-          <span className="text-slate-500 text-[8px] sm:text-[9px] font-mono">
+          <span className="text-slate-500 text-[8px] sm:text-[9px] font-mono shrink-0 whitespace-nowrap">
             {player.kpkSuspicionLevel > 50 ? 'Dadu 1-4' : 'Dadu 1-3'}
           </span>
         </div>
@@ -767,11 +767,11 @@ export const PoliticalInfluenceGauge: React.FC<PoliticalInfluenceProps> = ({
         </div>
 
         {/* Clout Tier Badge */}
-        <div className="flex items-center justify-between text-[9px] mt-1">
-          <span className={`font-bold font-mono tracking-tight px-1 py-0.2 rounded ${clout.bgColor} ${clout.badgeColor}`}>
+        <div className="flex items-center justify-between text-[8px] sm:text-[9px] mt-1 gap-0.5 overflow-hidden">
+          <span className={`font-bold font-mono tracking-tight px-1 py-0.2 rounded truncate max-w-[65%] shrink-0 ${clout.bgColor} ${clout.badgeColor}`}>
             {clout.tierTitle}
           </span>
-          <span className="text-slate-500 text-[8px] sm:text-[9px] font-mono">
+          <span className="text-slate-500 text-[8px] sm:text-[9px] font-mono shrink-0 whitespace-nowrap">
             {player.politicalInfluence >= 35 ? 'Anti-KPK ✓' : player.politicalInfluence >= 20 ? 'Subsidi ✓' : 'Sipil'}
           </span>
         </div>

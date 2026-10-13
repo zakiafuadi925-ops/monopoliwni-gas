@@ -490,11 +490,21 @@ export const CORRUPTION_ROUTE_TILES: BoardTile[] = [
   },
   {
     id: 102,
+    name: 'Pencucian Uang & Properti Mewah Samaran',
+    shortName: 'Cuci Uang Mewah',
+    zone: 'KORUPSI_ROUTE',
+    actionType: 'CORRUPTION_LAUNDER',
+    description: 'Cuci uang hasil korupsi dengan membeli aset properti mewah (Penthouse SCBD, Villa Bali, Ruko Samaran) berdiskon pajak 35%-45%, namun memicu lonjakan radar deteksi KPK!',
+    subtext: 'Diskon Pajak 40% (Risiko KPK +35%)',
+    isCorruptionRoute: true
+  },
+  {
+    id: 103,
     name: 'SIDAK BPK & RADAR OPERASI KPK',
     shortName: 'Sidak KPK / OTT',
     zone: 'KORUPSI_ROUTE',
     actionType: 'CORRUPTION_AUDIT',
-    description: 'Auditor BPK dan penyidik KPK melakukan penyadapan telepon! Lempar dadu: Jika angka 1-3, TERTANGKAP OTT KPK dan harus memberi uang suap Rp 20 Jt atau dibui!',
+    description: 'Auditor BPK dan penyidik KPK melakukan penyadapan telepon! Lempar dadu: Jika angka 1-3 (atau 1-4 bila radar tinggi), TERTANGKAP OTT KPK dan harus memberi uang suap Rp 20 Jt atau dibui!',
     subtext: 'Pertaruhan OTT KPK',
     isCorruptionRoute: true
   }

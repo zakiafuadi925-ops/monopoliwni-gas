@@ -28,6 +28,7 @@ export type TileActionType =
   | 'PARLIAMENT_SENAYAN'
   | 'CORRUPTION_GATE'
   | 'CORRUPTION_PROJECT'
+  | 'CORRUPTION_LAUNDER'
   | 'CORRUPTION_AUDIT'
   | 'BANSOS_LUCK';
 
@@ -176,7 +177,8 @@ export interface ActiveLaw {
   name: string;
   shortDesc: string;
   passedByPlayerId: string;
-  effect: 'ANTI_KPK' | 'LUXURY_TAX' | 'UMKM_SUBSIDY' | 'FREE_PARKING';
+  coalitionPartnerId?: string;
+  effect: 'ANTI_KPK' | 'LUXURY_TAX' | 'UMKM_SUBSIDY' | 'FREE_PARKING' | 'BANSOS_ORDAL' | 'PROGRESSIVE_TAX_DRASTIC' | 'ASSET_CONFISCATION_ACT';
   durationTurns: number;
 }
 

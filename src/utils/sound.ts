@@ -260,69 +260,88 @@ function createVolatileAmbient(ctx: AudioContext, masterGain: GainNode): () => v
 }
 
 // -------------------------------------------------------------
-// 4. CRISIS AMBIENT: Constant oscillating police / raid sirens & sub drone
+// 4. CRISIS AMBIENT: Dark cinematic tension, subtle heartbeat & sub-drone
+// (Sirene yang berputar terus-menerus dihapus agar tidak mengganggu pemain)
 // -------------------------------------------------------------
 function createCrisisAmbient(ctx: AudioContext, masterGain: GainNode): () => void {
   const nodesToStop: { stop?: () => void; disconnect: () => void }[] = [];
+  const intervals: ReturnType<typeof setInterval>[] = [];
 
-  // --- Dual-Tone Continuous Emergency Police / OTT Siren ---
-  const sirenOsc1 = ctx.createOscillator();
-  sirenOsc1.type = 'sawtooth';
-  sirenOsc1.frequency.setValueAtTime(750, ctx.currentTime);
+  // 1. One-shot brief introductory siren chime (HANYA 1 KALI saat krisis mulai, fade out dalam 0.8 detik)
+  // TIDAK berputar terus menerus, hanya penanda transisi singkat
+  try {
+    const now = ctx.currentTime;
+    const alertOsc = ctx.createOscillator();
+    const alertFilter = ctx.createBiquadFilter();
+    const alertGain = ctx.createGain();
 
-  const sirenOsc2 = ctx.createOscillator();
-  sirenOsc2.type = 'sine';
-  sirenOsc2.frequency.setValueAtTime(758, ctx.currentTime); // Slight detune for haunting resonance
+    alertOsc.type = 'sine';
+    alertOsc.frequency.setValueAtTime(650, now);
+    alertOsc.frequency.exponentialRampToValueAtTime(420, now + 0.7);
 
-  // LFO continuously sweeping pitch between ~580Hz and ~920Hz (0.45Hz period)
-  const sirenLFO = ctx.createOscillator();
-  sirenLFO.type = 'sine';
-  sirenLFO.frequency.setValueAtTime(0.45, ctx.currentTime);
+    alertFilter.type = 'lowpass';
+    alertFilter.frequency.setValueAtTime(850, now);
 
-  const lfoGain = ctx.createGain();
-  lfoGain.gain.setValueAtTime(170, ctx.currentTime);
-  sirenLFO.connect(lfoGain);
-  lfoGain.connect(sirenOsc1.frequency);
-  lfoGain.connect(sirenOsc2.frequency);
+    alertGain.gain.setValueAtTime(0.05, now);
+    alertGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
 
-  // Warm lowpass filter to evoke authentic emergency siren presence
-  const sirenFilter = ctx.createBiquadFilter();
-  sirenFilter.type = 'lowpass';
-  sirenFilter.frequency.setValueAtTime(1400, ctx.currentTime);
+    alertOsc.connect(alertFilter);
+    alertFilter.connect(alertGain);
+    alertGain.connect(masterGain);
 
-  const sirenGain = ctx.createGain();
-  sirenGain.gain.setValueAtTime(0.12, ctx.currentTime);
+    alertOsc.start(now);
+    alertOsc.stop(now + 0.75);
+    nodesToStop.push(alertOsc, alertFilter, alertGain);
+  } catch {}
 
-  sirenOsc1.connect(sirenFilter);
-  sirenOsc2.connect(sirenFilter);
-  sirenFilter.connect(sirenGain);
-  sirenGain.connect(masterGain);
-
-  sirenOsc1.start();
-  sirenOsc2.start();
-  sirenLFO.start();
-
-  // --- Threatening Dark Sub-Drone (55Hz) ---
+  // 2. Continuous Deep Warm Sub-Drone (55Hz) - Tenang, tidak memekakkan telinga
   const subDrone = ctx.createOscillator();
   const subFilter = ctx.createBiquadFilter();
   const subGain = ctx.createGain();
-  subDrone.type = 'sawtooth';
+  subDrone.type = 'sine';
   subDrone.frequency.setValueAtTime(55, ctx.currentTime);
   subFilter.type = 'lowpass';
-  subFilter.frequency.setValueAtTime(110, ctx.currentTime);
-  subGain.gain.setValueAtTime(0.06, ctx.currentTime);
+  subFilter.frequency.setValueAtTime(100, ctx.currentTime);
+  subGain.gain.setValueAtTime(0.05, ctx.currentTime);
 
   subDrone.connect(subFilter);
   subFilter.connect(subGain);
   subGain.connect(masterGain);
   subDrone.start();
 
-  nodesToStop.push(
-    sirenOsc1, sirenOsc2, sirenLFO, lfoGain, sirenFilter, sirenGain,
-    subDrone, subFilter, subGain
-  );
+  // 3. Subtle slow muffled heartbeat / pulse (setiap 1.4 detik)
+  const pulseInterval = setInterval(() => {
+    if (!ctx || ctx.state !== 'running' || !soundEnabled || !ambientEnabled) return;
+    try {
+      const t = ctx.currentTime;
+      const pulseOsc = ctx.createOscillator();
+      const pulseGain = ctx.createGain();
+      const pulseFilter = ctx.createBiquadFilter();
+
+      pulseOsc.type = 'sine';
+      pulseOsc.frequency.setValueAtTime(75, t);
+      pulseOsc.frequency.exponentialRampToValueAtTime(40, t + 0.18);
+
+      pulseFilter.type = 'lowpass';
+      pulseFilter.frequency.setValueAtTime(120, t);
+
+      pulseGain.gain.setValueAtTime(0.035, t);
+      pulseGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+
+      pulseOsc.connect(pulseFilter);
+      pulseFilter.connect(pulseGain);
+      pulseGain.connect(masterGain);
+
+      pulseOsc.start(t);
+      pulseOsc.stop(t + 0.22);
+    } catch {}
+  }, 1400);
+  intervals.push(pulseInterval);
+
+  nodesToStop.push(subDrone, subFilter, subGain);
 
   return () => {
+    intervals.forEach(clearInterval);
     nodesToStop.forEach(n => {
       try {
         if (n.stop) n.stop();
@@ -447,7 +466,7 @@ export const soundManager = {
   getAmbientDescription: () => {
     switch (currentTargetTrend) {
       case 'CRISIS':
-        return 'Sirene Polisi OTT & Darurat Krisis';
+        return 'Ketegangan Krisis Moneter';
       case 'VOLATILE':
         return 'Ticker Bursa & Pasar Panik';
       case 'RISING':
@@ -629,19 +648,25 @@ export const soundManager = {
       if (!ctx) return;
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
       const gain = ctx.createGain();
+
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(700, now);
-      osc.frequency.linearRampToValueAtTime(950, now + 0.2);
-      osc.frequency.linearRampToValueAtTime(700, now + 0.4);
-      osc.frequency.linearRampToValueAtTime(950, now + 0.6);
-      osc.frequency.linearRampToValueAtTime(700, now + 0.8);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.linearRampToValueAtTime(0.001, now + 0.85);
-      osc.connect(gain);
+      osc.frequency.setValueAtTime(620, now);
+      osc.frequency.linearRampToValueAtTime(780, now + 0.2);
+      osc.frequency.linearRampToValueAtTime(620, now + 0.4);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(950, now); // Filter frekuensi tinggi agar tidak menusuk telinga
+
+      gain.gain.setValueAtTime(0.06, now); // Volume diturunkan signifikan agar nyaman
+      gain.gain.linearRampToValueAtTime(0.001, now + 0.45);
+
+      osc.connect(filter);
+      filter.connect(gain);
       gain.connect(ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.85);
+      osc.stop(now + 0.45);
     } catch {
       // Ignore
     }

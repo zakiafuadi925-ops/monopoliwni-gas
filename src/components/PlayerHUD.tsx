@@ -182,11 +182,11 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
           <DiceRoller 
             onRoll={onRoll}
             isRolling={isRolling}
-            disabled={hasRolled || player.inJail}
+            disabled={hasRolled || player.inJail || player.isAi}
             lastRoll={lastRoll}
           />
 
-          {player.inJail && (
+          {player.inJail && !player.isAi && (
             <button
               onClick={onPayJailBribe}
               className="min-h-[44px] py-2.5 px-3 bg-rose-900/60 hover:bg-rose-900 border border-rose-700 text-rose-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
@@ -213,7 +213,7 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
 
         {/* Property Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap pt-1 sm:pt-0">
-          {canBuy && (
+          {canBuy && !player.isAi && (
             <button
               onClick={onBuyProperty}
               className="min-h-[44px] flex-1 sm:flex-initial py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
@@ -223,7 +223,7 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
             </button>
           )}
 
-          {canUpgrade && (
+          {canUpgrade && !player.isAi && (
             <button
               onClick={onUpgradeProperty}
               className="min-h-[44px] flex-1 sm:flex-initial py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
@@ -236,16 +236,16 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
           {/* End Turn */}
           <button
             onClick={onEndTurn}
-            disabled={!hasRolled && !player.inJail}
+            disabled={(!hasRolled && !player.inJail) || player.isAi}
             className={`
               min-h-[44px] flex-1 sm:flex-initial py-2.5 px-5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md
-              ${hasRolled || player.inJail
+              ${(hasRolled || player.inJail) && !player.isAi
                 ? 'bg-slate-100 hover:bg-white text-slate-900 cursor-pointer active:scale-95'
-                : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-70'
               }
             `}
           >
-            <span>Akhiri Giliran</span>
+            <span>{player.isAi ? `Giliran ${player.name}...` : 'Akhiri Giliran'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

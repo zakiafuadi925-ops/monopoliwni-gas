@@ -357,10 +357,20 @@ export const Board: React.FC<BoardProps> = ({
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
+              <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
                 {corruptionTiles.map(cTile => {
                   const playersHere = getPlayersOnTile(cTile.id);
                   const isSelected = selectedTile?.id === cTile.id;
+
+                  const getTileStyle = () => {
+                    if (cTile.id === 103) {
+                      return 'border-rose-600 bg-rose-950/60 text-rose-200';
+                    }
+                    if (cTile.id === 102) {
+                      return 'border-emerald-500/80 bg-emerald-950/50 text-emerald-200';
+                    }
+                    return 'border-amber-500/70 bg-amber-950/40 text-amber-200';
+                  };
 
                   return (
                     <div
@@ -369,7 +379,7 @@ export const Board: React.FC<BoardProps> = ({
                       className={`
                         p-1 sm:p-2 rounded sm:rounded-lg border text-center cursor-pointer transition-all flex flex-col justify-between
                         ${isSelected ? 'ring-2 ring-rose-400 scale-105' : 'hover:border-amber-400'}
-                        ${cTile.id === 102 ? 'border-rose-600 bg-rose-950/50 text-rose-200' : 'border-amber-500/70 bg-amber-950/40 text-amber-200'}
+                        ${getTileStyle()}
                       `}
                     >
                       <div>
@@ -743,7 +753,7 @@ export const Board: React.FC<BoardProps> = ({
             <span className="text-xs font-bold text-rose-400 uppercase tracking-wide block mb-2">
               Jalur Tikus Ordal (Rute Korupsi Tengah)
             </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
               {corruptionTiles.map(cTile => {
                 const playersHere = getPlayersOnTile(cTile.id);
                 return (

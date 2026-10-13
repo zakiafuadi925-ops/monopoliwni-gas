@@ -17,7 +17,7 @@ import {
 import { PERIMETER_TILES, CORRUPTION_ROUTE_TILES } from './data/tiles';
 import { DILEMMA_CARDS } from './data/cards';
 import { CHARACTER_ARCHETYPES } from './data/characters';
-import { BREAKING_NEWS_TEMPLATES, LawProposal } from './data/laws';
+import { BREAKING_NEWS_TEMPLATES, LAW_PROPOSALS, LawProposal } from './data/laws';
 import { formatRupiah, formatRupiahShort } from './utils/format';
 import { soundManager } from './utils/sound';
 
@@ -61,6 +61,7 @@ import { PlayerHUD } from './components/PlayerHUD';
 import { CardModal } from './components/CardModal';
 import { CorruptionGateModal, CorruptionAuditModal, KPKBribeModal } from './components/CorruptionModal';
 import { ParliamentModal } from './components/ParliamentModal';
+import { DrasticLawBanner } from './components/DrasticLawBanner';
 import { BreakingNewsBanner } from './components/BreakingNewsBanner';
 import { PlayerStatsDrawer } from './components/PlayerStatsDrawer';
 import { SetupGameModal } from './components/SetupGameModal';
@@ -70,6 +71,7 @@ import { DrawCardModal } from './components/DrawCardModal';
 import { GameLogsModal } from './components/GameLogsModal';
 import { KPKRadarPingEffect } from './components/VitalIndicators';
 import { RentCrisisModal, calculatePropertySellValue } from './components/RentCrisisModal';
+import { ManualRentPaymentModal, RentTransferData } from './components/ManualRentPaymentModal';
 import { MUSIBAH_EVENT_CARDS, TAKDIR_EVENT_CARDS } from './data/eventCards';
 import { EventOutcomeCard, SpecialCardItem } from './types/game';
 
@@ -213,7 +215,14 @@ export default function App() {
   const [activeDrawCardEvent, setActiveDrawCardEvent] = useState<{
     type: 'MUSIBAH' | 'TAKDIR';
     cardsPool: EventOutcomeCard[];
+    targetPlayer: Player;
   } | null>(null);
+  const activeDrawCardEventRef = useRef<{
+    type: 'MUSIBAH' | 'TAKDIR';
+    cardsPool: EventOutcomeCard[];
+    targetPlayer: Player;
+  } | null>(null);
+  const aiEndTurnTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showParliament, setShowParliament] = useState<boolean>(false);
   const [currentNews, setCurrentNews] = useState<BreakingNewsEvent | null>(null);
   const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
@@ -237,6 +246,9 @@ export default function App() {
     causeDesc?: string;
     onPaySuccess?: (updatedPayer: Player) => void;
   } | null>(null);
+
+  // Manual Rent Payment Animation Modal State
+  const [manualRentData, setManualRentData] = useState<RentTransferData | null>(null);
 
   // Survival Notifications
   const [psychologistNotice, setPsychologistNotice] = useState<{
@@ -636,7 +648,8 @@ export default function App() {
         soundManager.playPawnLand();
         setIsMoving(false);
         setHasRolled(true);
-        resolveLandingTile(player, newPos);
+        const freshPlayer = players.find(p => p.id === player.id) || { ...player, position: newPos, isInCorruptionRoute: exitRoute ? false : player.isInCorruptionRoute };
+        resolveLandingTile({ ...freshPlayer, position: newPos, isInCorruptionRoute: exitRoute ? false : freshPlayer.isInCorruptionRoute }, newPos);
       }, 350);
       return;
     }
@@ -687,7 +700,8 @@ export default function App() {
           soundManager.playPawnLand();
           setIsMoving(false);
           setHasRolled(true);
-          resolveLandingTile(player, nextPos);
+          const freshPlayer = players.find(p => p.id === player.id) || { ...player, position: nextPos };
+          resolveLandingTile({ ...freshPlayer, position: nextPos }, nextPos);
         }, 220);
       }
     };
@@ -819,7 +833,19 @@ export default function App() {
               }
             }
 
-            // Normal rent payment
+            // If payer is Human player, trigger Manual Rent Payment Animation Modal!
+            if (!player.isAi) {
+              setManualRentData({
+                payer: player,
+                owner,
+                tile,
+                rentCost,
+                multiplier: rentBonus
+              });
+              return;
+            }
+
+            // Normal rent payment for AI player
             setPlayers(prev => prev.map(p => {
               if (p.id === player.id) {
                 const updated = {
@@ -1036,19 +1062,25 @@ export default function App() {
 
       case 'EVENT_MUSIBAH': {
         soundManager.playSirenOTT();
-        setActiveDrawCardEvent({
-          type: 'MUSIBAH',
-          cardsPool: MUSIBAH_EVENT_CARDS
-        });
+        const eventData = {
+          type: 'MUSIBAH' as const,
+          cardsPool: MUSIBAH_EVENT_CARDS,
+          targetPlayer: player
+        };
+        activeDrawCardEventRef.current = eventData;
+        setActiveDrawCardEvent(eventData);
         break;
       }
 
       case 'EVENT_TAKDIR': {
         soundManager.playCash();
-        setActiveDrawCardEvent({
-          type: 'TAKDIR',
-          cardsPool: TAKDIR_EVENT_CARDS
-        });
+        const eventData = {
+          type: 'TAKDIR' as const,
+          cardsPool: TAKDIR_EVENT_CARDS,
+          targetPlayer: player
+        };
+        activeDrawCardEventRef.current = eventData;
+        setActiveDrawCardEvent(eventData);
         break;
       }
 
@@ -1188,6 +1220,52 @@ export default function App() {
     setRentCrisis(null);
   };
 
+  // Confirm Manual Rent Payment after Animation Finishes
+  const handleConfirmManualRentPayment = () => {
+    if (!manualRentData) return;
+    const { payer, owner, tile, rentCost } = manualRentData;
+
+    setPlayers(prev => prev.map(p => {
+      if (p.id === payer.id) {
+        const updated = {
+          ...p,
+          cash: p.cash - rentCost,
+          stress: Math.min(100, p.stress + 10),
+          stats: { ...p.stats, totalRentPaid: p.stats.totalRentPaid + rentCost }
+        };
+        checkStressThreshold(updated);
+        return updated;
+      }
+      if (p.id === owner.id) {
+        return {
+          ...p,
+          cash: p.cash + rentCost,
+          stats: { ...p.stats, totalRentEarned: p.stats.totalRentEarned + rentCost }
+        };
+      }
+      return p;
+    }));
+
+    addLog(`💸 ${payer.name} melunasi sewa ${formatRupiah(rentCost)} kepada ${owner.name} untuk properti ${tile.name}!`, 'CASH', payer.id);
+    setManualRentData(null);
+  };
+
+  const handleUseSpecialCardForManualRent = (cardId: string) => {
+    if (!manualRentData) return;
+    const { payer, owner, tile } = manualRentData;
+    setPlayers(prev => prev.map(p => {
+      if (p.id === payer.id) {
+        return {
+          ...p,
+          specialCards: p.specialCards?.filter(c => c.id !== cardId)
+        };
+      }
+      return p;
+    }));
+    addLog(`🛡️ ${payer.name} mengaktifkan Kartu Ordal Sakti! Bebas 100% dari tagihan sewa properti ${tile.name} milik ${owner.name}!`, 'POLITIC', payer.id);
+    setManualRentData(null);
+  };
+
   // Buy Property
   const handleBuyProperty = () => {
     if (!activePlayer || activePlayer.isBankrupt) return;
@@ -1323,6 +1401,13 @@ export default function App() {
     }
 
     setActiveDilemmaCard(null);
+
+    // End turn for AI player after dilemma choice resolves
+    if (activePlayer?.isAi) {
+      setTimeout(() => {
+        handleEndTurn();
+      }, 1200);
+    }
   };
 
   // Handle outcome from 3D DrawCardModal (Musibah / Takdir with 3-tier dice roll)
@@ -1332,17 +1417,19 @@ export default function App() {
     confiscatedTile: BoardTile | null;
     usedSpecialCardId?: string;
   }) => {
-    if (!activePlayer) return;
+    const targetId = activeDrawCardEvent?.targetPlayer?.id || activeDrawCardEventRef.current?.targetPlayer?.id || activePlayer?.id;
+    const target = players.find(p => p.id === targetId) || activeDrawCardEvent?.targetPlayer || activeDrawCardEventRef.current?.targetPlayer || activePlayer;
+    if (!target) return;
     const { card, confiscatedTile, usedSpecialCardId } = outcome;
 
     // Confiscate land deed if state seized it
     if (confiscatedTile) {
       setPerimeterTiles(prev => prev.map(t => t.id === confiscatedTile.id ? { ...t, ownerId: null, level: 1 } : t));
-      addLog(`🚨 SITA NEGARA! Surat Tanah ${confiscatedTile.certificateTitle || confiscatedTile.name} milik ${activePlayer.name} resmi dicabut & disita oleh Satgas BPN!`, 'DANGER', activePlayer.id);
+      addLog(`🚨 SITA NEGARA! Surat Tanah ${confiscatedTile.certificateTitle || confiscatedTile.name} milik ${target.name} resmi dicabut & disita oleh Satgas BPN!`, 'DANGER', target.id);
     }
 
     if (usedSpecialCardId) {
-      addLog(`🛡️ KARTU SAKTI AKTIF! ${activePlayer.name} menggunakan kartu proteksi ordal sehingga selamat dari penyitaan tanah!`, 'POLITIC', activePlayer.id);
+      addLog(`🛡️ KARTU SAKTI AKTIF! ${target.name} menggunakan kartu proteksi ordal sehingga selamat dari penyitaan tanah!`, 'POLITIC', target.id);
     }
 
     // Cash adjustment (taking inflation into account for penalties)
@@ -1363,10 +1450,10 @@ export default function App() {
     // Check if player has sufficient cash for penalties
     if (netCashChange < 0) {
       const penalty = Math.abs(netCashChange);
-      if (activePlayer.cash < penalty) {
-        if (activePlayer.isAi) {
-          const aiOwnedTiles = perimeterTiles.filter(t => t.ownerId === activePlayer.id);
-          let currentCash = activePlayer.cash;
+      if (target.cash < penalty) {
+        if (target.isAi) {
+          const aiOwnedTiles = perimeterTiles.filter(t => t.ownerId === target.id);
+          let currentCash = target.cash;
           const soldPropertyIds: number[] = [];
           const soldPropertyTitles: string[] = [];
           for (const prop of aiOwnedTiles) {
@@ -1379,10 +1466,10 @@ export default function App() {
 
           if (currentCash >= penalty) {
             setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
-            addLog(`${activePlayer.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) seharga ${formatRupiah(currentCash - activePlayer.cash)} untuk melunasi kerugian ${card.title}!`, 'DANGER', activePlayer.id);
+            addLog(`${target.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) seharga ${formatRupiah(currentCash - target.cash)} untuk melunasi kerugian ${card.title}!`, 'DANGER', target.id);
 
             setPlayers(prev => prev.map(p => {
-              if (p.id === activePlayer.id) {
+              if (p.id === target.id) {
                 let updatedProps = p.ownedProperties.filter(id => !soldPropertyIds.includes(id));
                 if (confiscatedTile) updatedProps = updatedProps.filter(id => id !== confiscatedTile.id);
                 let updatedSpecialCards = [...(p.specialCards || [])];
@@ -1410,18 +1497,32 @@ export default function App() {
               }
               return p;
             }));
+            activeDrawCardEventRef.current = null;
             setActiveDrawCardEvent(null);
+            if (target.isAi) {
+              if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+              aiEndTurnTimerRef.current = setTimeout(() => {
+                handleEndTurn();
+              }, 1400);
+            }
             return;
           } else {
-            handlePlayerBankruptcy(activePlayer, `Bangkrut tidak sanggup membayar kerugian ${card.title} (${formatRupiah(penalty)})`);
+            handlePlayerBankruptcy(target, `Bangkrut tidak sanggup membayar kerugian ${card.title} (${formatRupiah(penalty)})`);
+            activeDrawCardEventRef.current = null;
             setActiveDrawCardEvent(null);
+            if (target.isAi) {
+              if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+              aiEndTurnTimerRef.current = setTimeout(() => {
+                handleEndTurn();
+              }, 1400);
+            }
             return;
           }
         } else {
           // Human player: open financial crisis modal to allow property liquidation!
           setRentCrisis({
             crisisType: 'EVENT_LOSS',
-            payer: activePlayer,
+            payer: target,
             amountDue: penalty,
             title: card.title,
             subtitle: 'KRISIS KAS TUNAI · PEMBAYARAN KERUGIAN PERISTIWA',
@@ -1467,6 +1568,7 @@ export default function App() {
               addLog(`✅ ${updatedPayer.name} berhasil melunasi kerugian ${card.title} sebesar ${formatRupiah(penalty)}!`, 'CASH', updatedPayer.id);
             }
           });
+          activeDrawCardEventRef.current = null;
           setActiveDrawCardEvent(null);
           return;
         }
@@ -1474,7 +1576,7 @@ export default function App() {
     }
 
     setPlayers(prev => prev.map(p => {
-      if (p.id === activePlayer.id) {
+      if (p.id === target.id) {
         let updatedProps = p.ownedProperties;
         if (confiscatedTile) {
           updatedProps = updatedProps.filter(id => id !== confiscatedTile.id);
@@ -1515,7 +1617,7 @@ export default function App() {
     }));
 
     if (specialReward) {
-      addLog(`🎁 KARTU SAKTI DIPEROLEH! ${activePlayer.name} menerima item berharga: ${specialReward.title}!`, 'POLITIC', activePlayer.id);
+      addLog(`🎁 KARTU SAKTI DIPEROLEH! ${target.name} menerima item berharga: ${specialReward.title}!`, 'POLITIC', target.id);
     }
 
     const tierDesc = outcome.diceValue <= 2 
@@ -1524,9 +1626,18 @@ export default function App() {
         ? '🎲 DADU [3-4] TIER SEDANG' 
         : '🎲 DADU [5-6] TIER RINGAN';
     const logType = card.eventType === 'MUSIBAH' ? 'DANGER' : 'CASH';
-    addLog(`${tierDesc} • ${card.title}: ${card.headline}`, logType, activePlayer.id);
+    addLog(`${tierDesc} • ${card.title}: ${card.headline} (${target.name})`, logType, target.id);
 
+    activeDrawCardEventRef.current = null;
     setActiveDrawCardEvent(null);
+
+    // End turn cleanly for AI players after card effects conclude
+    if (target.isAi) {
+      if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+      aiEndTurnTimerRef.current = setTimeout(() => {
+        handleEndTurn();
+      }, 1400);
+    }
   };
 
   // Corruption Audit Resolve (BPK & KPK)
@@ -1684,43 +1795,192 @@ export default function App() {
     addLog(`${activePlayer.name} menyuap sipir Lapas sebesar Rp 20 Jt! Mendapat remisi kilat dan langsung bebas.`, 'CASH', activePlayer.id);
   };
 
-  // Pass Public Law in DPR Senayan
-  const handlePassLaw = (proposal: LawProposal) => {
-    if (!activePlayer || activePlayer.isBankrupt || activePlayer.politicalInfluence < proposal.requiredInfluence) return;
+  // Pass Public Law in DPR Senayan (Solo or Coalition)
+  const handlePassLaw = (proposal: LawProposal, coalitionPartner?: Player) => {
+    if (!activePlayer || activePlayer.isBankrupt) return;
+
+    const totalInfluence = activePlayer.politicalInfluence + (coalitionPartner ? coalitionPartner.politicalInfluence : 0);
+    if (totalInfluence < proposal.requiredInfluence) return;
 
     soundManager.playCash();
 
     // Deduct political influence
-    setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
-      ...p,
-      politicalInfluence: p.politicalInfluence - proposal.requiredInfluence
-    } : p));
+    if (coalitionPartner) {
+      let deductA = Math.min(activePlayer.politicalInfluence, Math.ceil(proposal.requiredInfluence / 2));
+      let deductB = proposal.requiredInfluence - deductA;
+      if (coalitionPartner.politicalInfluence < deductB) {
+        deductB = coalitionPartner.politicalInfluence;
+        deductA = proposal.requiredInfluence - deductB;
+      }
 
-    // Execute instant effect if applicable
-    if (proposal.effectType === 'BANSOS_ORDAL') {
+      setPlayers(prev => prev.map(p => {
+        if (p.id === activePlayer.id) {
+          return { ...p, politicalInfluence: Math.max(0, p.politicalInfluence - deductA) };
+        }
+        if (p.id === coalitionPartner.id) {
+          return { ...p, politicalInfluence: Math.max(0, p.politicalInfluence - deductB) };
+        }
+        return p;
+      }));
+
+      addLog(`🤝 KOALISI PARLEMEN TERBENTUK: ${activePlayer.name} (-${deductA} Poin) & ${coalitionPartner.name} (-${deductB} Poin) menggabungkan kuorum mengesahkan "${proposal.title}"!`, 'POLITIC', activePlayer.id);
+    } else {
+      setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
+        ...p,
+        politicalInfluence: p.politicalInfluence - proposal.requiredInfluence
+      } : p));
+    }
+
+    // 1. PROGRESSIVE_TAX_DRASTIC: Drastic 25% Progressive Wealth Tax on all non-coalition rivals
+    if (proposal.effectType === 'PROGRESSIVE_TAX_DRASTIC') {
+      let totalTaxCollected = 0;
+      const breakdownLogs: string[] = [];
+      const nonCoalitionIds = players
+        .filter(p => p.id !== activePlayer.id && p.id !== coalitionPartner?.id && !p.isBankrupt)
+        .map(p => p.id);
+
+      setPlayers(prev => {
+        // Collect 25% from rivals
+        const updated = prev.map(p => {
+          if (nonCoalitionIds.includes(p.id) && p.cash >= 1_000_000) {
+            const tax = Math.round(p.cash * 0.25);
+            totalTaxCollected += tax;
+            breakdownLogs.push(`${p.name} (-${formatRupiah(tax)})`);
+            const updatedP = {
+              ...p,
+              cash: p.cash - tax,
+              stress: Math.min(100, p.stress + 20)
+            };
+            checkStressThreshold(updatedP);
+            return updatedP;
+          }
+          return p;
+        });
+
+        // Split tax collection between coalition partners (50:50) or give 100% to activePlayer
+        const shareA = coalitionPartner ? Math.ceil(totalTaxCollected / 2) : totalTaxCollected;
+        const shareB = coalitionPartner ? Math.floor(totalTaxCollected / 2) : 0;
+
+        return updated.map(p => {
+          if (p.id === activePlayer.id) {
+            return { ...p, cash: p.cash + shareA };
+          }
+          if (coalitionPartner && p.id === coalitionPartner.id) {
+            return { ...p, cash: p.cash + shareB };
+          }
+          return p;
+        });
+      });
+
+      if (totalTaxCollected > 0) {
+        addLog(`⚖️ PAJAK PROGRESIF DRASTIS BERLAKU: Total ${formatRupiah(totalTaxCollected)} disita dari rival (${breakdownLogs.join(', ')}). ${coalitionPartner ? `Masing-masing anggota koalisi mengantongi ${formatRupiah(Math.ceil(totalTaxCollected / 2))}!` : `Disetor ke kas ${activePlayer.name}!`}`, 'POLITIC', activePlayer.id);
+      } else {
+        addLog(`UU Pajak Progresif diberlakukan! Tidak ada rival di luar koalisi dengan saldo tunai mencukupi.`, 'INFO', activePlayer.id);
+      }
+    } 
+    // 2. ASSET_CONFISCATION_ACT: Confiscate best land deed from wealthiest non-coalition rival + Rp 25.000.000 fine
+    else if (proposal.effectType === 'ASSET_CONFISCATION_ACT') {
+      const nonCoalitionRivals = players.filter(p => p.id !== activePlayer.id && p.id !== coalitionPartner?.id && !p.isBankrupt);
+      
+      // Find the wealthiest rival with properties or cash
+      let primeRival: Player | null = null;
+      let maxWealth = -1;
+      for (const rival of nonCoalitionRivals) {
+        const rivalTiles = perimeterTiles.filter(t => t.ownerId === rival.id);
+        const wealth = rival.cash + rivalTiles.reduce((sum, t) => sum + (t.price || 0), 0);
+        if (wealth > maxWealth) {
+          maxWealth = wealth;
+          primeRival = rival;
+        }
+      }
+
+      if (primeRival) {
+        // Seize 1 highest-value land deed
+        const rivalTiles = perimeterTiles.filter(t => t.ownerId === primeRival.id);
+        let seizedTile: BoardTile | null = null;
+        if (rivalTiles.length > 0) {
+          seizedTile = rivalTiles.reduce((prev, curr) => ((curr.price || 0) > (prev.price || 0)) ? curr : prev);
+          setPerimeterTiles(prev => prev.map(t => t.id === seizedTile!.id ? { ...t, ownerId: null, level: 1 } : t));
+          addLog(`🚨 SITA ASET NEGARA: Sertifikat Tanah ${seizedTile.certificateTitle || seizedTile.name} milik ${primeRival.name} resmi dicabut & disita oleh Satgas Koalisi Parlemen!`, 'DANGER', primeRival.id);
+        }
+
+        // Penalty fine Rp 25.000.000
+        const fineAmount = Math.min(primeRival.cash, 25_000_000);
+        const shareA = coalitionPartner ? Math.ceil(fineAmount / 2) : fineAmount;
+        const shareB = coalitionPartner ? Math.floor(fineAmount / 2) : 0;
+
+        setPlayers(prev => prev.map(p => {
+          if (p.id === primeRival!.id) {
+            let updatedProps = p.ownedProperties;
+            if (seizedTile) {
+              updatedProps = updatedProps.filter(id => id !== seizedTile!.id);
+            }
+            const updatedP = {
+              ...p,
+              cash: Math.max(0, p.cash - fineAmount),
+              stress: Math.min(100, p.stress + 30),
+              ownedProperties: updatedProps
+            };
+            checkStressThreshold(updatedP);
+            return updatedP;
+          }
+          if (p.id === activePlayer.id) {
+            return { ...p, cash: p.cash + shareA };
+          }
+          if (coalitionPartner && p.id === coalitionPartner.id) {
+            return { ...p, cash: p.cash + shareB };
+          }
+          return p;
+        }));
+
+        addLog(`🏛️ UU PENYITAAN ASET DISAHKAN: Koalisi ${activePlayer.name} & ${coalitionPartner?.name || 'Fraksi'} berhasil melucuti aset dan mendenda ${primeRival.name} sebesar ${formatRupiah(fineAmount)}!`, 'POLITIC', activePlayer.id);
+      } else {
+        addLog(`Tidak ada pemain rival di luar koalisi yang dapat disita asetnya.`, 'INFO', activePlayer.id);
+      }
+    }
+    // 3. BANSOS_ORDAL
+    else if (proposal.effectType === 'BANSOS_ORDAL') {
       setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
         ...p,
         cash: p.cash + 45_000_000
       } : p));
       addLog(`${activePlayer.name} mencairkan Dana Aspirasi Dapil sebesar Rp 45 Jt!`, 'CASH', activePlayer.id);
-    } else if (proposal.effectType === 'LUXURY_TAX') {
-      // Collect 15% cash from other players who have > 80 Jt
+    } 
+    // 4. LUXURY_TAX
+    else if (proposal.effectType === 'LUXURY_TAX') {
       let totalCollected = 0;
-      setPlayers(prev => prev.map(p => {
-        if (p.id !== activePlayer.id && !p.isBankrupt && p.cash > 80_000_000) {
-          const tax = Math.round(p.cash * 0.15);
-          totalCollected += tax;
-          return { ...p, cash: p.cash - tax };
-        }
-        return p;
-      }));
+      const breakdownLogs: string[] = [];
 
-      setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
-        ...p,
-        cash: p.cash + totalCollected
-      } : p));
+      setPlayers(prev => {
+        const updated = prev.map(p => {
+          if (p.id !== activePlayer.id && p.id !== coalitionPartner?.id && !p.isBankrupt && p.cash >= 50_000_000) {
+            const tax = Math.round(p.cash * 0.15);
+            totalCollected += tax;
+            breakdownLogs.push(`${p.name} (-${formatRupiah(tax)})`);
+            return { ...p, cash: p.cash - tax };
+          }
+          return p;
+        });
 
-      addLog(`UU Pajak Barang Mewah diberlakukan! ${activePlayer.name} memungut ${formatRupiah(totalCollected)} dari pemain lawan!`, 'POLITIC', activePlayer.id);
+        const shareA = coalitionPartner ? Math.ceil(totalCollected / 2) : totalCollected;
+        const shareB = coalitionPartner ? Math.floor(totalCollected / 2) : 0;
+
+        return updated.map(p => {
+          if (p.id === activePlayer.id) {
+            return { ...p, cash: p.cash + shareA };
+          }
+          if (coalitionPartner && p.id === coalitionPartner.id) {
+            return { ...p, cash: p.cash + shareB };
+          }
+          return p;
+        });
+      });
+
+      if (totalCollected > 0) {
+        addLog(`UU Pajak Barang Mewah diberlakukan! ${activePlayer.name} memungut total ${formatRupiah(totalCollected)} dari lawan: ${breakdownLogs.join(', ')}!`, 'POLITIC', activePlayer.id);
+      } else {
+        addLog(`UU Pajak Barang Mewah diberlakukan! Tidak ada pemain lawan dengan saldo tunai di atas ambang batas (>= Rp 50 Jt).`, 'INFO', activePlayer.id);
+      }
     }
 
     const newLaw: ActiveLaw = {
@@ -1728,18 +1988,32 @@ export default function App() {
       name: proposal.title,
       shortDesc: proposal.description,
       passedByPlayerId: activePlayer.id,
+      coalitionPartnerId: coalitionPartner?.id,
       effect: proposal.effectType as ActiveLaw['effect'],
       durationTurns: 4
     };
 
     setActiveLaws(prev => [...prev, newLaw]);
     setShowParliament(false);
-    addLog(`PARIPURNA MENGETUK PALU: ${activePlayer.name} berhasil mengesahkan "${proposal.title}"!`, 'POLITIC', activePlayer.id);
+    addLog(`PARIPURNA MENGETUK PALU: ${activePlayer.name}${coalitionPartner ? ` bersama ${coalitionPartner.name}` : ''} berhasil mengesahkan "${proposal.title}"!`, 'POLITIC', activePlayer.id);
   };
 
   // End Turn Engine
   const handleEndTurn = () => {
-    if (!activePlayer || isRolling || isMoving || rentCrisis) return;
+    if (
+      !activePlayer || 
+      isRolling || 
+      isMoving || 
+      rentCrisis || 
+      activeDrawCardEvent || 
+      activeDrawCardEventRef.current ||
+      activeDilemmaCard || 
+      showCorruptionGate || 
+      showCorruptionAudit || 
+      showKpkBribe || 
+      showParliament || 
+      manualRentData
+    ) return;
 
     // Check stress on active player before turn concludes
     checkStressThreshold(activePlayer);
@@ -1910,6 +2184,23 @@ export default function App() {
   useEffect(() => {
     if (isSetupOpen || isGameOver || !activePlayer || !activePlayer.isAi || activePlayer.isBankrupt) return;
 
+    // Do not proceed with automatic turn if an animation, modal, or crisis is active
+    if (
+      isRolling || 
+      isMoving || 
+      activeDrawCardEvent || 
+      activeDrawCardEventRef.current ||
+      activeDilemmaCard || 
+      showCorruptionGate || 
+      showCorruptionAudit || 
+      showKpkBribe || 
+      showParliament || 
+      manualRentData || 
+      rentCrisis
+    ) {
+      return;
+    }
+
     // AI Turn Execution with clear pacing so human player can observe
     const aiTimer = setTimeout(() => {
       if (!hasRolled && !activePlayer.inJail) {
@@ -1918,8 +2209,22 @@ export default function App() {
         const d2 = Math.floor(Math.random() * 6) + 1;
         handleRollDice(d1, d2, d1 + d2);
       } else if (hasRolled) {
-        // AI Decides Property Purchase
         const curTile = perimeterTiles.find(t => t.id === activePlayer.position);
+
+        // If the tile is an interactive event/dilemma/corruption/parliament tile, let its modal handler conclude the turn!
+        if (
+          curTile?.actionType === 'EVENT_MUSIBAH' ||
+          curTile?.actionType === 'EVENT_TAKDIR' ||
+          curTile?.actionType === 'DILEMA_CARD' ||
+          curTile?.actionType === 'CORRUPTION_GATE' ||
+          curTile?.actionType === 'PARLIAMENT_SENAYAN' ||
+          activeDrawCardEvent ||
+          activeDrawCardEventRef.current
+        ) {
+          return;
+        }
+
+        // AI Decides Property Purchase
         if (curTile && curTile.actionType === 'PROPERTY' && !curTile.ownerId) {
           const inflationFactor = 1 + (macro.inflationRate / 100);
           const cost = Math.round((curTile.price || 0) * inflationFactor);
@@ -1929,21 +2234,44 @@ export default function App() {
         }
 
         // End turn after thinking delay so human can follow
-        setTimeout(() => {
+        if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+        aiEndTurnTimerRef.current = setTimeout(() => {
           handleEndTurn();
         }, 1100);
       } else if (activePlayer.inJail) {
         if (activePlayer.cash >= 2_000_000) {
           handlePayJailBribe();
         }
-        setTimeout(() => {
+        if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+        aiEndTurnTimerRef.current = setTimeout(() => {
           handleEndTurn();
         }, 900);
       }
     }, 1200);
 
-    return () => clearTimeout(aiTimer);
-  }, [activePlayerIndex, hasRolled, isSetupOpen, isGameOver, activePlayer]);
+    return () => {
+      clearTimeout(aiTimer);
+      if (aiEndTurnTimerRef.current) {
+        clearTimeout(aiEndTurnTimerRef.current);
+      }
+    };
+  }, [
+    activePlayerIndex, 
+    hasRolled, 
+    isSetupOpen, 
+    isGameOver, 
+    activePlayer,
+    isRolling,
+    isMoving,
+    activeDrawCardEvent,
+    activeDilemmaCard,
+    showCorruptionGate,
+    showCorruptionAudit,
+    showKpkBribe,
+    showParliament,
+    manualRentData,
+    rentCrisis
+  ]);
 
   // Handle AI Dilemma Card Auto-Select
   useEffect(() => {
@@ -1956,6 +2284,53 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [activeDilemmaCard, activePlayer]);
+
+  // Handle AI Parliament & Coalition Bill Auto-Passing
+  useEffect(() => {
+    if (showParliament && activePlayer?.isAi) {
+      const timer = setTimeout(() => {
+        // AI looks for a coalition partner with highest influence
+        const candidateAllies = players.filter(p => p.id !== activePlayer.id && !p.isBankrupt);
+        const bestAlly = candidateAllies.length > 0 
+          ? candidateAllies.reduce((prev, curr) => curr.politicalInfluence > prev.politicalInfluence ? curr : prev)
+          : undefined;
+
+        const combinedInfluence = activePlayer.politicalInfluence + (bestAlly ? bestAlly.politicalInfluence : 0);
+
+        // Priority 1: Check Coalition Bills if partner available
+        if (bestAlly && combinedInfluence >= 75) {
+          const confiscateProp = LAW_PROPOSALS.find(p => p.id === 'uu_penyitaan_aset');
+          if (confiscateProp) {
+            handlePassLaw(confiscateProp, bestAlly);
+            setTimeout(() => handleEndTurn(), 1400);
+            return;
+          }
+        } else if (bestAlly && combinedInfluence >= 65) {
+          const progTaxProp = LAW_PROPOSALS.find(p => p.id === 'uu_pajak_progresif_drastis');
+          if (progTaxProp) {
+            handlePassLaw(progTaxProp, bestAlly);
+            setTimeout(() => handleEndTurn(), 1400);
+            return;
+          }
+        }
+
+        // Priority 2: Check Solo Bills
+        const affordableSolo = LAW_PROPOSALS.filter(p => !p.isCoalitionOnly && activePlayer.politicalInfluence >= p.requiredInfluence);
+        if (affordableSolo.length > 0) {
+          handlePassLaw(affordableSolo[0]);
+          setTimeout(() => handleEndTurn(), 1400);
+          return;
+        }
+
+        // Insufficient political capital: close parliament
+        setShowParliament(false);
+        addLog(`${activePlayer.name} (AI) meninggalkan Sidang Paripurna tanpa mengesahkan RUU karena modal politik belum mencukupi.`, 'INFO', activePlayer.id);
+        setTimeout(() => handleEndTurn(), 1200);
+      }, 1600);
+
+      return () => clearTimeout(timer);
+    }
+  }, [showParliament, activePlayer, players]);
 
   // Handle AI Corruption Gate Auto-Select
   useEffect(() => {
@@ -1973,6 +2348,9 @@ export default function App() {
           addLog(`${activePlayer.name} memilih jalur aman rakyat jelata.`, 'INFO', activePlayer.id);
         }
         setShowCorruptionGate(false);
+        setTimeout(() => {
+          handleEndTurn();
+        }, 1100);
       }, 1100);
       return () => clearTimeout(timer);
     }
@@ -2091,6 +2469,9 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Persistent Drastic Coalition Law Banner at Top of Screen */}
+      <DrasticLawBanner activeLaws={activeLaws} players={players} />
 
       {/* Main Game Arena */}
       <main className="flex-1 w-full max-w-7xl mx-auto p-2 sm:p-4 md:p-6 space-y-4 pb-24 lg:pb-6">
@@ -2382,18 +2763,19 @@ export default function App() {
             {!hasRolled && !activePlayer.inJail ? (
               <button
                 onClick={() => {
+                  if (activePlayer.isAi) return;
                   const d1 = Math.floor(Math.random() * 6) + 1;
                   const d2 = Math.floor(Math.random() * 6) + 1;
                   handleRollDice(d1, d2, d1 + d2);
                 }}
-                disabled={isRolling || isMoving}
+                disabled={isRolling || isMoving || activePlayer.isAi}
                 className="min-h-[44px] flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>{isRolling ? 'Mengocok...' : isMoving ? 'Melangkah...' : 'Kocok Dadu'}</span>
+                <span>{activePlayer.isAi ? `🤖 Giliran ${activePlayer.name}...` : isRolling ? 'Mengocok...' : isMoving ? 'Melangkah...' : 'Kocok Dadu'}</span>
               </button>
             ) : hasRolled ? (
               <>
-                {currentLandingTile.actionType === 'PROPERTY' && !currentLandingTile.ownerId && activePlayer.cash >= Math.round((currentLandingTile.price || 0) * (1 + macro.inflationRate / 100)) && (
+                {currentLandingTile.actionType === 'PROPERTY' && !currentLandingTile.ownerId && activePlayer.cash >= Math.round((currentLandingTile.price || 0) * (1 + macro.inflationRate / 100)) && !activePlayer.isAi && (
                   <button
                     onClick={handleBuyProperty}
                     className="min-h-[44px] py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
@@ -2405,13 +2787,14 @@ export default function App() {
 
                 <button
                   onClick={handleEndTurn}
-                  className="min-h-[44px] flex-1 py-2 px-3 bg-white text-slate-950 text-xs font-black rounded-xl shadow-md flex items-center justify-center gap-1 active:scale-95 cursor-pointer"
+                  disabled={activePlayer.isAi}
+                  className="min-h-[44px] flex-1 py-2 px-3 bg-white text-slate-950 text-xs font-black rounded-xl shadow-md flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <span>Akhiri</span>
+                  <span>{activePlayer.isAi ? `Giliran ${activePlayer.name}...` : 'Akhiri'}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </>
-            ) : activePlayer.inJail ? (
+            ) : activePlayer.inJail && !activePlayer.isAi ? (
               <button
                 onClick={handlePayJailBribe}
                 className="min-h-[44px] flex-1 py-2 px-3 bg-rose-900 border border-rose-700 text-rose-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1"
@@ -2492,12 +2875,12 @@ export default function App() {
       )}
 
       {/* 4c. Event Musibah & Takdir 3D Draw Card & 3-Tier Dice Outcome Modal */}
-      {activeDrawCardEvent && activePlayer && (
+      {activeDrawCardEvent && (
         <DrawCardModal
-          player={activePlayer}
+          player={activeDrawCardEvent.targetPlayer}
           eventType={activeDrawCardEvent.type}
           cardsPool={activeDrawCardEvent.cardsPool}
-          ownedTiles={perimeterTiles.filter(t => activePlayer.ownedProperties.includes(t.id))}
+          ownedTiles={perimeterTiles.filter(t => activeDrawCardEvent.targetPlayer.ownedProperties.includes(t.id))}
           onConfirmOutcome={handleConfirmDrawCardOutcome}
         />
       )}
@@ -2506,6 +2889,7 @@ export default function App() {
       {showParliament && activePlayer && (
         <ParliamentModal
           player={activePlayer}
+          players={players}
           onPassLaw={handlePassLaw}
           onClose={() => setShowParliament(false)}
         />
@@ -2591,6 +2975,15 @@ export default function App() {
           onPayRent={handlePayRentFromCrisis}
           onDeclareBankruptcy={handleBankruptcyFromRentCrisis}
           onUseSpecialCard={handleUseSpecialCardForRent}
+        />
+      )}
+
+      {/* 12. Manual Rent Payment Interactive & Animated Modal */}
+      {manualRentData && (
+        <ManualRentPaymentModal
+          data={manualRentData}
+          onConfirmPayment={handleConfirmManualRentPayment}
+          onUseSpecialCard={handleUseSpecialCardForManualRent}
         />
       )}
     </div>

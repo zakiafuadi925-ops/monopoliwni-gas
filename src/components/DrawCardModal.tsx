@@ -51,15 +51,29 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
     c => c.type === 'ORDAL_SAKTI' || c.type === 'KEBAL_SITA'
   );
 
-  // Auto-roll for AI players after 800ms
+  // Auto-roll for AI players after 700ms (ensures AI always rolls for itself)
   useEffect(() => {
     if (player.isAi && phase === 'READY_TO_ROLL') {
       const timer = setTimeout(() => {
         handleRollDice();
-      }, 900);
+      }, 750);
       return () => clearTimeout(timer);
     }
   }, [player.isAi, phase]);
+
+  // Auto-confirm for AI players after card is revealed (gives human players 2.2s to observe card & effects)
+  useEffect(() => {
+    if (player.isAi && phase === 'REVEALED') {
+      // If AI has protective card and card confiscates tile or causes heavy loss, activate protection!
+      if (protectiveCards.length > 0 && (selectedConfiscatedTile || (activeCard && activeCard.cashChange < -15_000_000))) {
+        setProtectWithSpecialCard(true);
+      }
+      const timer = setTimeout(() => {
+        handleFinalConfirm();
+      }, 2200);
+      return () => clearTimeout(timer);
+    }
+  }, [player.isAi, phase, protectiveCards.length, selectedConfiscatedTile, activeCard]);
 
   const handleRollDice = () => {
     if (phase !== 'READY_TO_ROLL') return;
@@ -125,7 +139,14 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
     let confiscated = selectedConfiscatedTile;
     let usedCardId: string | undefined = undefined;
 
-    if (protectWithSpecialCard && protectiveCards.length > 0) {
+    // AI auto-protect check or user selected protection
+    const shouldProtect = protectWithSpecialCard || (
+      player.isAi && 
+      protectiveCards.length > 0 && 
+      (selectedConfiscatedTile || activeCard.cashChange < -15_000_000)
+    );
+
+    if (shouldProtect && protectiveCards.length > 0) {
       usedCardId = protectiveCards[0].id;
       confiscated = null; // Saved by special card!
     }
@@ -159,10 +180,10 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
               <span className={`text-[10px] sm:text-xs font-mono font-black uppercase tracking-wider block ${
                 isMusibah ? 'text-rose-400' : 'text-amber-400'
               }`}>
-                HAL TAK TERDUGA · KARTU {isMusibah ? 'MUSIBAH' : 'TAKDIR'} WNI
+                HAL TAK TERDUGA · KARTU {isMusibah ? 'MUSIBAH' : 'TAKDIR'} WNI {player.isAi ? '(GILIRAN BOT AI)' : ''}
               </span>
               <h3 className="text-sm sm:text-base font-black text-white leading-tight">
-                {player.name}: {isMusibah ? 'Uji Ketahanan Bencana' : 'Uji Nasib & Keberuntungan'}
+                {player.isAi ? `🤖 [AI] ${player.name}` : player.name}: {isMusibah ? 'Uji Ketahanan Bencana' : 'Uji Nasib & Keberuntungan'}
               </h3>
             </div>
           </div>
@@ -173,7 +194,7 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
             style={{ borderColor: player.color, backgroundColor: `${player.color}20` }}
           >
             <span>{player.avatar}</span>
-            <span className="hidden sm:inline text-white">{player.name}</span>
+            <span className="hidden sm:inline text-white">{player.name} {player.isAi ? '(AI)' : ''}</span>
           </div>
         </div>
 
@@ -266,7 +287,11 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
                     }`}
                   >
                     <Dices className="w-5 h-5 animate-spin" />
-                    <span>🎲 Lempar Dadu & Buka Kartu Sekarang!</span>
+                    <span>
+                      {player.isAi 
+                        ? `🤖 [AI: ${player.name}] Mengacak Dadu... (Klik Cepat)`
+                        : '🎲 Lempar Dadu & Buka Kartu Sekarang!'}
+                    </span>
                   </button>
                   <p className="text-[11px] text-slate-400 mt-1.5">
                     Tingkat keparahan / keberuntungan ditentukan oleh angka dadu (1-6).
@@ -480,10 +505,13 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
                 >
                   <Check className="w-4 h-4" />
                   <span>
-                    {isMusibah 
-                      ? (protectWithSpecialCard ? 'Gunakan Kartu Sakti & Lanjutkan' : 'Terima Putusan Negara & Lanjutkan')
-                      : 'Ambil Rezeki Takdir & Lanjutkan Permainan'
-                    }
+                    {player.isAi ? (
+                      `🤖 ${player.name} Memproses Hasil... (Klik Lanjut Cepat)`
+                    ) : isMusibah ? (
+                      protectWithSpecialCard ? 'Gunakan Kartu Sakti & Lanjutkan' : 'Terima Putusan Negara & Lanjutkan'
+                    ) : (
+                      'Ambil Rezeki Takdir & Lanjutkan Permainan'
+                    )}
                   </span>
                 </button>
               </div>
