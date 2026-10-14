@@ -12,7 +12,8 @@ import {
   BreakingNewsEvent, 
   GameLogItem, 
   DilemmaCard,
-  MacroHistoryPoint
+  MacroHistoryPoint,
+  KonohaMacroBuff
 } from './types/game';
 import { PERIMETER_TILES, CORRUPTION_ROUTE_TILES } from './data/tiles';
 import { DILEMMA_CARDS } from './data/cards';
@@ -72,7 +73,9 @@ import { GameLogsModal } from './components/GameLogsModal';
 import { KPKRadarPingEffect } from './components/VitalIndicators';
 import { RentCrisisModal, calculatePropertySellValue } from './components/RentCrisisModal';
 import { ManualRentPaymentModal, RentTransferData } from './components/ManualRentPaymentModal';
+import { MoneyLaunderingModal } from './components/MoneyLaunderingModal';
 import { MUSIBAH_EVENT_CARDS, TAKDIR_EVENT_CARDS } from './data/eventCards';
+import { LUXURY_BOARD_TILES, LuxuryLaunderProperty } from './data/luxuryProperties';
 import { EventOutcomeCard, SpecialCardItem } from './types/game';
 
 // Icons
@@ -123,6 +126,7 @@ const createDefaultPlayers = (): Player[] => [
     avatar: '🛵',
     title: 'Buruh Pabrik & Ojol Pejuang Nafkah',
     specialCards: [],
+    konohaBuffs: [],
     stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
   },
   {
@@ -144,6 +148,7 @@ const createDefaultPlayers = (): Player[] => [
     avatar: '👔',
     title: 'PNS Golongan III/a Santuy',
     specialCards: [],
+    konohaBuffs: [],
     stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
   },
   {
@@ -165,6 +170,7 @@ const createDefaultPlayers = (): Player[] => [
     avatar: '🏛️',
     title: 'Caleg Muda Berdasi & Aktivis Timses',
     specialCards: [],
+    konohaBuffs: [],
     stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
   }
 ];
@@ -193,6 +199,7 @@ export default function App() {
   // Board & Economy
   const [perimeterTiles, setPerimeterTiles] = useState<BoardTile[]>(PERIMETER_TILES);
   const [corruptionTiles, setCorruptionTiles] = useState<BoardTile[]>(CORRUPTION_ROUTE_TILES);
+  const [luxuryTiles, setLuxuryTiles] = useState<BoardTile[]>(LUXURY_BOARD_TILES);
   const [macro, setMacro] = useState<MacroEconomy>({
     inflationRate: 5.2,
     biRate: 6.25,
@@ -200,7 +207,8 @@ export default function App() {
     trend: 'STABLE',
     monthIndex: 1,
     weekIndex: 1,
-    year: 2026
+    year: 2026,
+    activeKonohaBuffs: []
   });
   const [macroHistory, setMacroHistory] = useState<MacroHistoryPoint[]>(INITIAL_MACRO_HISTORY);
   const [activeLaws, setActiveLaws] = useState<ActiveLaw[]>([]);
@@ -211,6 +219,7 @@ export default function App() {
   const [activeDilemmaCard, setActiveDilemmaCard] = useState<DilemmaCard | null>(null);
   const [showCorruptionGate, setShowCorruptionGate] = useState<boolean>(false);
   const [showCorruptionAudit, setShowCorruptionAudit] = useState<boolean>(false);
+  const [showMoneyLaundering, setShowMoneyLaundering] = useState<boolean>(false);
   const [showKpkBribe, setShowKpkBribe] = useState<boolean>(false);
   const [activeDrawCardEvent, setActiveDrawCardEvent] = useState<{
     type: 'MUSIBAH' | 'TAKDIR';
@@ -323,7 +332,8 @@ export default function App() {
       trend: 'STABLE',
       monthIndex: 1,
       weekIndex: 1,
-      year: 2026
+      year: 2026,
+      activeKonohaBuffs: []
     });
     setMacroHistory(INITIAL_MACRO_HISTORY);
     setActivePlayerIndex(0);
@@ -417,6 +427,7 @@ export default function App() {
         kpkSuspicionLevel: 10,
         isBankrupt: false,
         specialCards: [],
+        konohaBuffs: [],
         stats: {
           totalRentEarned: 0,
           totalRentPaid: 0,
@@ -625,6 +636,8 @@ export default function App() {
         newPos = 101;
       } else if (player.position === 101) {
         newPos = 102;
+      } else if (player.position === 102) {
+        newPos = 103;
       } else {
         newPos = 21;
         exitRoute = true;
@@ -677,17 +690,28 @@ export default function App() {
         const bonusPct = (CHARACTER_ARCHETYPES.find(a => a.id === player.archetypeId)?.salaryBonusPercent || 0) / 100;
         const totalSalary = Math.round(baseSalary * inflationFactor * (1 + bonusPct));
 
+        // Check if player has INTEREST_RATE_HIKE Konoha buff ("Dividen Deposito Hawkish Konoha")
+        const hasDepositBuff = player.konohaBuffs?.some(b => b.type === 'INTEREST_RATE_HIKE');
+        let depositDividends = 0;
+        if (hasDepositBuff) {
+          depositDividends = Math.min(15_000_000, Math.max(2_000_000, Math.round(player.cash * 0.05)));
+        }
+
         soundManager.playCash();
         setPlayers(prev => prev.map(p => {
           if (p.id !== player.id) return p;
           return {
             ...p,
             position: nextPos,
-            cash: p.cash + totalSalary,
+            cash: p.cash + totalSalary + depositDividends,
             stress: Math.max(0, p.stress - 10)
           };
         }));
-        addLog(`${player.name} melewati START! Gajian UMR cair ${formatRupiah(totalSalary)} dan Stres turun 10%.`, 'CASH', player.id);
+        if (depositDividends > 0) {
+          addLog(`${player.name} melewati START! Gajian UMR cair ${formatRupiah(totalSalary)} + 💰 Dividen Deposito Hawkish BI ${formatRupiah(depositDividends)}! Stres turun 10%.`, 'CASH', player.id);
+        } else {
+          addLog(`${player.name} melewati START! Gajian UMR cair ${formatRupiah(totalSalary)} dan Stres turun 10%.`, 'CASH', player.id);
+        }
       } else {
         setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, position: nextPos } : p));
       }
@@ -713,7 +737,7 @@ export default function App() {
   const resolveLandingTile = (player: Player, tileId: number) => {
     if (player.isBankrupt) return;
 
-    const tile = [...perimeterTiles, ...corruptionTiles].find(t => t.id === tileId);
+    const tile = [...perimeterTiles, ...corruptionTiles, ...luxuryTiles].find(t => t.id === tileId);
     if (!tile) return;
 
     addLog(`${player.name} mendarat di petak #${tile.id}: ${tile.name}.`, 'INFO', player.id);
@@ -741,7 +765,10 @@ export default function App() {
         } : p));
         addLog(`${player.name} mendapat jatah Kuota Impor Pangan! Dapat Rp 45 Jt dan +20 Modal Politik.`, 'POLITIC', player.id);
       } else if (tile.id === 102) {
-        // Sidak BPK & Radar OTT
+        // Cuci Uang & Properti Mewah Samaran
+        setShowMoneyLaundering(true);
+      } else if (tile.id === 103) {
+        // Sidak BPK & Radar OTT KPK
         setShowCorruptionAudit(true);
       }
       return;
@@ -760,7 +787,10 @@ export default function App() {
             // Check if owner has UMKM Subsidy Law active
             const hasUmkmSubsidy = activeLaws.some(l => l.effect === 'UMKM_SUBSIDY' && l.passedByPlayerId === owner.id);
             const rentBonus = hasUmkmSubsidy ? 1.35 : 1;
-            const rentCost = Math.round((tile.rent || 0) * inflationFactor * levelMultiplier * rentBonus);
+            const hasKonohaBoom = owner.konohaBuffs?.some(b => b.type === 'INFLATION_BOOM');
+            const konohaRentMultiplier = hasKonohaBoom ? 1.25 : 1;
+            const combinedRentMultiplier = rentBonus * konohaRentMultiplier;
+            const rentCost = Math.round((tile.rent || 0) * inflationFactor * levelMultiplier * combinedRentMultiplier);
 
             soundManager.playBuzzer();
 
@@ -840,7 +870,7 @@ export default function App() {
                 owner,
                 tile,
                 rentCost,
-                multiplier: rentBonus
+                multiplier: combinedRentMultiplier
               });
               return;
             }
@@ -889,6 +919,13 @@ export default function App() {
           return;
         }
 
+        // Check if player has Takdir Konoha INFLATION_REDUCTION (Operasi Pasar SPHP & Subsidi Energi)
+        const hasKonohaSubsidy = player.konohaBuffs?.some(b => b.type === 'INFLATION_REDUCTION');
+        if (hasKonohaSubsidy) {
+          addLog(`🍃 SUBSIDI PANGAN & ENERGI KONOHA! ${player.name} dibebaskan dari tagihan retribusi ${tile.name}!`, 'POLITIC', player.id);
+          return;
+        }
+
         const inflationFactor = 1 + (macro.inflationRate / 100);
         let billAmount = 500_000;
         if (tile.id === 4) billAmount = 500_000; // Razia
@@ -899,6 +936,11 @@ export default function App() {
         else if (tile.id === 17) billAmount = 800_000; // Tapera
         else if (tile.id === 19) billAmount = 1_500_000; // Bea Cukai
         else if (tile.id === 26) billAmount = 650_000; // Ormas
+
+        // Check if player has RUPIAH_STRENGTHEN discount
+        if (player.konohaBuffs?.some(b => b.type === 'RUPIAH_STRENGTHEN')) {
+          billAmount = Math.round(billAmount * 0.5);
+        }
 
         const adjustedBill = Math.round(billAmount * inflationFactor);
         soundManager.playBuzzer();
@@ -1305,7 +1347,15 @@ export default function App() {
     if (currentLevel >= 3) return;
 
     const inflationFactor = 1 + (macro.inflationRate / 100);
-    const upgradeCost = Math.round((currentTile.upgradeCost || 0) * inflationFactor);
+    let upgradeDiscount = 0;
+    if (activePlayer.konohaBuffs?.some(b => b.type === 'INTEREST_RATE_CUT')) {
+      upgradeDiscount = Math.max(upgradeDiscount, 0.30); // 30% discount
+    }
+    if (activePlayer.konohaBuffs?.some(b => b.type === 'INFLATION_REDUCTION')) {
+      upgradeDiscount = Math.max(upgradeDiscount, 0.20); // 20% discount
+    }
+    const baseUpgrade = (currentTile.upgradeCost || 0) * inflationFactor;
+    const upgradeCost = Math.round(baseUpgrade * (1 - upgradeDiscount));
 
     if (activePlayer.cash < upgradeCost) return;
 
@@ -1321,7 +1371,8 @@ export default function App() {
       level: currentLevel + 1
     } : t));
 
-    addLog(`${activePlayer.name} meningkatkan cabang usaha ${currentTile.name} ke Tingkat ${currentLevel + 1}!`, 'CASH', activePlayer.id);
+    const discountNote = upgradeDiscount > 0 ? ` (Diskon Takdir Konoha ${(upgradeDiscount * 100).toFixed(0)}%)` : '';
+    addLog(`${activePlayer.name} meningkatkan cabang usaha ${currentTile.name} ke Tingkat ${currentLevel + 1}${discountNote}!`, 'CASH', activePlayer.id);
   };
 
   // Resolve Dilemma Card
@@ -1575,6 +1626,76 @@ export default function App() {
       }
     }
 
+    // Apply Kartu Takdir Konoha Permanent Macroeconomic Buff
+    let konohaBuffInstance: KonohaMacroBuff | null = null;
+    if (card.isKonohaCard && card.konohaBuffConfig) {
+      const cfg = card.konohaBuffConfig;
+      let newInflation = Number((macro.inflationRate + cfg.inflationDelta).toFixed(1));
+      newInflation = Math.max(2.0, Math.min(22.0, newInflation));
+
+      let newBiRate = Number((macro.biRate + cfg.biRateDelta).toFixed(2));
+      newBiRate = Math.max(3.0, Math.min(12.0, newBiRate));
+
+      let newUsd = macro.usdIdrRate + (cfg.usdIdrDelta || 0);
+      newUsd = Math.max(14000, Math.min(19000, newUsd));
+
+      let newTrend = macro.trend;
+      if (newInflation > 10.0) newTrend = 'CRISIS';
+      else if (newInflation > 7.0) newTrend = 'VOLATILE';
+      else if (cfg.inflationDelta > 0.5) newTrend = 'RISING';
+      else newTrend = 'STABLE';
+
+      konohaBuffInstance = {
+        id: `buff_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        cardId: card.id,
+        cardTitle: card.title,
+        cardIcon: card.icon,
+        drawnByPlayerId: target.id,
+        drawnByPlayerName: target.name,
+        drawnByPlayerColor: target.color,
+        type: cfg.type,
+        inflationDelta: cfg.inflationDelta,
+        biRateDelta: cfg.biRateDelta,
+        usdIdrDelta: cfg.usdIdrDelta,
+        buffName: cfg.buffName,
+        buffEffectDesc: cfg.buffEffectDesc,
+        playerPerkText: cfg.playerPerkText,
+        timestamp: `Putaran #${cycleRound}`
+      };
+
+      setMacro(prev => ({
+        ...prev,
+        inflationRate: newInflation,
+        biRate: newBiRate,
+        usdIdrRate: newUsd,
+        trend: newTrend,
+        activeKonohaBuffs: [...(prev.activeKonohaBuffs || []), konohaBuffInstance!]
+      }));
+
+      setMacroHistory(prev => [
+        ...prev,
+        {
+          round: cycleRound,
+          label: `P${cycleRound}🍃`,
+          fullPeriod: `Putaran ${cycleRound} · Takdir Konoha (${cfg.buffName})`,
+          inflationRate: newInflation,
+          usdIdrRate: newUsd,
+          biRate: newBiRate,
+          trend: newTrend,
+          note: `🍃 Takdir Konoha: ${cfg.buffName}`
+        }
+      ]);
+
+      const infChangeStr = cfg.inflationDelta > 0 ? `+${cfg.inflationDelta}%` : `${cfg.inflationDelta}%`;
+      const biChangeStr = cfg.biRateDelta > 0 ? `+${cfg.biRateDelta}%` : `${cfg.biRateDelta}%`;
+
+      addLog(
+        `🍃 TAKDIR KONOHA DIAKTIFKAN: ${target.name} menarik '${card.title}'! Buff makroekonomi permanen diterapkan: Inflasi ${infChangeStr} (kini ${newInflation}%), BI-Rate ${biChangeStr} (kini ${newBiRate}%). Perk: ${cfg.playerPerkText}`,
+        'POLITIC',
+        target.id
+      );
+    }
+
     setPlayers(prev => prev.map(p => {
       if (p.id === target.id) {
         let updatedProps = p.ownedProperties;
@@ -1595,6 +1716,11 @@ export default function App() {
           updatedSpecialCards.push(newCardInstance);
         }
 
+        let updatedKonohaBuffs = [...(p.konohaBuffs || [])];
+        if (konohaBuffInstance) {
+          updatedKonohaBuffs.push(konohaBuffInstance);
+        }
+
         const newCash = p.cash + netCashChange;
         const newStress = Math.min(100, Math.max(0, p.stress + card.stressChange));
         const newPol = Math.min(100, Math.max(0, p.politicalInfluence + (card.politicalChange || 0)));
@@ -1606,6 +1732,7 @@ export default function App() {
           politicalInfluence: newPol,
           ownedProperties: updatedProps,
           specialCards: updatedSpecialCards,
+          konohaBuffs: updatedKonohaBuffs,
           stats: { ...p.stats, cardsDrawn: p.stats.cardsDrawn + 1 }
         };
 
@@ -1676,6 +1803,11 @@ export default function App() {
           } : p));
           addLog(`${activePlayer.name} (AI) tertangkap OTT KPK & saldo tidak cukup suap! Dijebloskan ke Lapas Sukamiskin.`, 'DANGER', activePlayer.id);
         }
+
+        if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+        aiEndTurnTimerRef.current = setTimeout(() => {
+          handleEndTurn();
+        }, 1400);
       } else {
         // Human player gets the prompt to pay bribe or refuse
         setShowKpkBribe(true);
@@ -1692,6 +1824,13 @@ export default function App() {
       } : p));
 
       addLog(`LOLOS CUCI UANG! ${activePlayer.name} berhasil mengamankan aset korupsi dan melenggang ke Gedung DPR Senayan!`, 'POLITIC', activePlayer.id);
+
+      if (activePlayer.isAi) {
+        if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+        aiEndTurnTimerRef.current = setTimeout(() => {
+          handleEndTurn();
+        }, 1400);
+      }
     }
   };
 
@@ -1793,6 +1932,137 @@ export default function App() {
     } : p));
 
     addLog(`${activePlayer.name} menyuap sipir Lapas sebesar Rp 20 Jt! Mendapat remisi kilat dan langsung bebas.`, 'CASH', activePlayer.id);
+  };
+
+  // Money Laundering Handlers in Corruption Route
+  const handleLaunderBuyLuxury = (property: LuxuryLaunderProperty) => {
+    setShowMoneyLaundering(false);
+    if (!activePlayer || activePlayer.isBankrupt) return;
+
+    if (activePlayer.cash < property.launderPrice) {
+      addLog(`${activePlayer.name} gagal membeli aset ${property.shortName} karena saldo tunai tidak mencukupi.`, 'DANGER', activePlayer.id);
+      return;
+    }
+
+    soundManager.playCash();
+    setPlayers(prev => prev.map(p => {
+      if (p.id === activePlayer.id) {
+        const updated = {
+          ...p,
+          cash: p.cash - property.launderPrice,
+          ownedProperties: [...p.ownedProperties, property.id],
+          kpkSuspicionLevel: Math.min(100, p.kpkSuspicionLevel + property.kpkRiskIncrease),
+          stress: Math.max(0, p.stress - property.stressRelief),
+          stats: {
+            ...p.stats,
+            totalCorruptionGains: p.stats.totalCorruptionGains + (property.normalPrice - property.launderPrice)
+          }
+        };
+        checkStressThreshold(updated);
+        return updated;
+      }
+      return p;
+    }));
+
+    setLuxuryTiles(prev => prev.map(t => t.id === property.id ? { ...t, ownerId: activePlayer.id, level: 1 } : t));
+
+    addLog(`💎 PENCUCIAN UANG BERHASIL! ${activePlayer.name} membeli "${property.name}" dengan potongan pajak spesial seharga ${formatRupiah(property.launderPrice)} (${property.taxSavingsText})! Radar KPK naik drastis +${property.kpkRiskIncrease}%.`, 'CASH', activePlayer.id);
+
+    if (activePlayer.isAi) {
+      if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+      aiEndTurnTimerRef.current = setTimeout(() => {
+        handleEndTurn();
+      }, 1400);
+    }
+  };
+
+  const handleLaunderBuyPerimeter = (tile: BoardTile, discountedCost: number, kpkRisk: number) => {
+    setShowMoneyLaundering(false);
+    if (!activePlayer || activePlayer.isBankrupt) return;
+
+    if (activePlayer.cash < discountedCost) {
+      addLog(`${activePlayer.name} gagal membeli aset ${tile.name} karena saldo tidak mencukupi.`, 'DANGER', activePlayer.id);
+      return;
+    }
+
+    soundManager.playCash();
+    setPlayers(prev => prev.map(p => {
+      if (p.id === activePlayer.id) {
+        const updated = {
+          ...p,
+          cash: p.cash - discountedCost,
+          ownedProperties: [...p.ownedProperties, tile.id],
+          kpkSuspicionLevel: Math.min(100, p.kpkSuspicionLevel + kpkRisk)
+        };
+        return updated;
+      }
+      return p;
+    }));
+
+    setPerimeterTiles(prev => prev.map(t => t.id === tile.id ? { ...t, ownerId: activePlayer.id, level: 1 } : t));
+
+    addLog(`🏢 PENCUCIAN UANG ASET PUBLIK: ${activePlayer.name} memborong ${tile.certificateTitle || tile.name} dengan diskon pajak 40% seharga ${formatRupiah(discountedCost)}! Radar deteksi KPK bertambah +${kpkRisk}%.`, 'CASH', activePlayer.id);
+
+    if (activePlayer.isAi) {
+      if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+      aiEndTurnTimerRef.current = setTimeout(() => {
+        handleEndTurn();
+      }, 1400);
+    }
+  };
+
+  const handleSkipLaundering = () => {
+    setShowMoneyLaundering(false);
+    if (activePlayer) {
+      addLog(`${activePlayer.name} memilih tidak mencuci uang di petak ini demi menghindari risiko radar deteksi KPK.`, 'INFO', activePlayer.id);
+    }
+
+    if (activePlayer?.isAi) {
+      if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+      aiEndTurnTimerRef.current = setTimeout(() => {
+        handleEndTurn();
+      }, 1200);
+    }
+  };
+
+  // Parliamentary Debate Veto Handler
+  const handleVetoLaw = (proposal: LawProposal, vetoingPlayer: Player, usedSpecialCardId?: string) => {
+    soundManager.playGavel();
+    soundManager.playBuzzer();
+
+    setPlayers(prev => prev.map(p => {
+      if (p.id === vetoingPlayer.id) {
+        let updatedCards = p.specialCards || [];
+        if (usedSpecialCardId) {
+          const idx = updatedCards.findIndex(c => c.id === usedSpecialCardId);
+          if (idx !== -1) {
+            updatedCards = updatedCards.filter((_, i) => i !== idx);
+          }
+        }
+        return {
+          ...p,
+          politicalInfluence: Math.min(100, p.politicalInfluence + 15),
+          specialCards: updatedCards
+        };
+      }
+      if (activePlayer && p.id === activePlayer.id) {
+        return {
+          ...p,
+          politicalInfluence: Math.max(0, p.politicalInfluence - 10)
+        };
+      }
+      return p;
+    }));
+
+    addLog(`🚨 INTERUPSI PARLEMEN BERHASIL! Fraksi ${vetoingPlayer.name} berhasil membatalkan pengesahan RUU "${proposal.title}" melalui perdebatan sidang! (${activePlayer?.name} -10 Modal Politik, ${vetoingPlayer.name} +15 Modal Politik).`, 'POLITIC', vetoingPlayer.id);
+    setShowParliament(false);
+
+    if (activePlayer?.isAi) {
+      if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+      aiEndTurnTimerRef.current = setTimeout(() => {
+        handleEndTurn();
+      }, 1400);
+    }
   };
 
   // Pass Public Law in DPR Senayan (Solo or Coalition)
@@ -1996,6 +2266,13 @@ export default function App() {
     setActiveLaws(prev => [...prev, newLaw]);
     setShowParliament(false);
     addLog(`PARIPURNA MENGETUK PALU: ${activePlayer.name}${coalitionPartner ? ` bersama ${coalitionPartner.name}` : ''} berhasil mengesahkan "${proposal.title}"!`, 'POLITIC', activePlayer.id);
+
+    if (activePlayer.isAi) {
+      if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
+      aiEndTurnTimerRef.current = setTimeout(() => {
+        handleEndTurn();
+      }, 1400);
+    }
   };
 
   // End Turn Engine
@@ -2012,6 +2289,7 @@ export default function App() {
       showCorruptionAudit || 
       showKpkBribe || 
       showParliament || 
+      showMoneyLaundering ||
       manualRentData
     ) return;
 
@@ -2193,6 +2471,7 @@ export default function App() {
       activeDilemmaCard || 
       showCorruptionGate || 
       showCorruptionAudit || 
+      showMoneyLaundering ||
       showKpkBribe || 
       showParliament || 
       manualRentData || 
@@ -2209,45 +2488,34 @@ export default function App() {
         const d2 = Math.floor(Math.random() * 6) + 1;
         handleRollDice(d1, d2, d1 + d2);
       } else if (hasRolled) {
-        const curTile = perimeterTiles.find(t => t.id === activePlayer.position);
+        // Pawn has finished moving and all modals/events are clear
+        const allTiles = [...perimeterTiles, ...corruptionTiles, ...luxuryTiles];
+        const curTile = allTiles.find(t => t.id === activePlayer.position);
 
-        // If the tile is an interactive event/dilemma/corruption/parliament tile, let its modal handler conclude the turn!
-        if (
-          curTile?.actionType === 'EVENT_MUSIBAH' ||
-          curTile?.actionType === 'EVENT_TAKDIR' ||
-          curTile?.actionType === 'DILEMA_CARD' ||
-          curTile?.actionType === 'CORRUPTION_GATE' ||
-          curTile?.actionType === 'PARLIAMENT_SENAYAN' ||
-          activeDrawCardEvent ||
-          activeDrawCardEventRef.current
-        ) {
-          return;
-        }
-
-        // AI Decides Property Purchase
+        // AI Decides Property Purchase if landing on unowned perimeter property
         if (curTile && curTile.actionType === 'PROPERTY' && !curTile.ownerId) {
           const inflationFactor = 1 + (macro.inflationRate / 100);
           const cost = Math.round((curTile.price || 0) * inflationFactor);
-          if (activePlayer.cash > cost * 1.3) {
+          if (activePlayer.cash > cost * 1.35) {
             handleBuyProperty();
           }
         }
 
-        // End turn after thinking delay so human can follow
+        // Conclude AI turn after a brief delay for human readability
         if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
         aiEndTurnTimerRef.current = setTimeout(() => {
           handleEndTurn();
         }, 1100);
       } else if (activePlayer.inJail) {
-        if (activePlayer.cash >= 2_000_000) {
+        if (activePlayer.cash >= 20_000_000 && activePlayer.stress > 30) {
           handlePayJailBribe();
         }
         if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
         aiEndTurnTimerRef.current = setTimeout(() => {
           handleEndTurn();
-        }, 900);
+        }, 1000);
       }
-    }, 1200);
+    }, 1100);
 
     return () => {
       clearTimeout(aiTimer);
@@ -2267,10 +2535,56 @@ export default function App() {
     activeDilemmaCard,
     showCorruptionGate,
     showCorruptionAudit,
+    showMoneyLaundering,
     showKpkBribe,
     showParliament,
     manualRentData,
     rentCrisis
+  ]);
+
+  // AI Turn Conclusion Watchdog:
+  // If an AI player has rolled, is not moving, and no interactive modals/crises are active,
+  // this watchdog ensures the turn concludes even if other timers were disrupted by re-renders.
+  useEffect(() => {
+    if (!activePlayer || !activePlayer.isAi || activePlayer.isBankrupt || !hasRolled) return;
+
+    if (
+      isRolling || 
+      isMoving || 
+      activeDrawCardEvent || 
+      activeDrawCardEventRef.current || 
+      activeDilemmaCard || 
+      showCorruptionGate || 
+      showCorruptionAudit || 
+      showMoneyLaundering || 
+      showKpkBribe || 
+      showParliament || 
+      manualRentData || 
+      rentCrisis
+    ) {
+      return;
+    }
+
+    const watchdogTimer = setTimeout(() => {
+      handleEndTurn();
+    }, 2400);
+
+    return () => clearTimeout(watchdogTimer);
+  }, [
+    activePlayerIndex,
+    hasRolled,
+    isRolling,
+    isMoving,
+    activeDrawCardEvent,
+    activeDilemmaCard,
+    showCorruptionGate,
+    showCorruptionAudit,
+    showMoneyLaundering,
+    showKpkBribe,
+    showParliament,
+    manualRentData,
+    rentCrisis,
+    activePlayer
   ]);
 
   // Handle AI Dilemma Card Auto-Select
@@ -2891,7 +3205,22 @@ export default function App() {
           player={activePlayer}
           players={players}
           onPassLaw={handlePassLaw}
+          onVetoLaw={handleVetoLaw}
           onClose={() => setShowParliament(false)}
+        />
+      )}
+
+      {/* 5b. Money Laundering & Luxury Real Estate in Corruption Route Modal */}
+      {showMoneyLaundering && activePlayer && (
+        <MoneyLaunderingModal
+          player={activePlayer}
+          players={players}
+          perimeterTiles={perimeterTiles}
+          luxuryTiles={luxuryTiles}
+          macro={macro}
+          onLaunderBuyLuxury={handleLaunderBuyLuxury}
+          onLaunderBuyPerimeter={handleLaunderBuyPerimeter}
+          onSkipLaundering={handleSkipLaundering}
         />
       )}
 
@@ -2906,7 +3235,7 @@ export default function App() {
       {/* 7. Player Statistics & Transparency Drawer */}
       <PlayerStatsDrawer
         players={players}
-        tiles={[...perimeterTiles, ...corruptionTiles]}
+        tiles={[...perimeterTiles, ...corruptionTiles, ...luxuryTiles]}
         macro={macro}
         macroHistory={macroHistory}
         currentRound={cycleRound}
@@ -2943,7 +3272,7 @@ export default function App() {
       {isGameOver && (
         <GameOverModal
           players={players}
-          tiles={[...perimeterTiles, ...corruptionTiles]}
+          tiles={[...perimeterTiles, ...corruptionTiles, ...luxuryTiles]}
           macro={macro}
           onRestart={handleRestartNewRound}
           onQuickRestart={handleQuickRestart}
@@ -2968,7 +3297,7 @@ export default function App() {
           recipientAvatar={rentCrisis.recipientAvatar}
           recipientColor={rentCrisis.recipientColor}
           causeDesc={rentCrisis.causeDesc}
-          perimeterTiles={perimeterTiles}
+          perimeterTiles={[...perimeterTiles, ...luxuryTiles]}
           macro={macro}
           onSellProperty={handleSellPropertyForRent}
           onSellAllProperties={handleSellAllPropertiesForRent}

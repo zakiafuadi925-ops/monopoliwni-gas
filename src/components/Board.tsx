@@ -115,6 +115,9 @@ export const Board: React.FC<BoardProps> = ({
       case 'KORUPSI_ROUTE':
         return 'border-amber-400/90 bg-amber-950/60 text-amber-300';
       default:
+        if (tile.actionType === 'CORRUPTION_GATE') {
+          return 'border-amber-500 bg-amber-950/70 text-amber-200 ring-2 ring-amber-500/80 shadow-lg shadow-amber-950/60';
+        }
         return 'border-slate-700 bg-slate-900 text-slate-200';
     }
   };

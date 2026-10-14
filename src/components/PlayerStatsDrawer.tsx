@@ -435,6 +435,37 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                 </div>
               )}
 
+              {/* Buff Takdir Konoha Section */}
+              {selectedPlayer.konohaBuffs && selectedPlayer.konohaBuffs.length > 0 && (
+                <div className="p-3 bg-emerald-950/30 border border-emerald-500/60 rounded-xl space-y-2">
+                  <span className="text-xs uppercase font-black text-emerald-400 tracking-wider flex items-center gap-1.5">
+                    <span>🍃</span>
+                    <span>Hak Istimewa Takdir Konoha ({selectedPlayer.konohaBuffs.length} Buff Permanen)</span>
+                  </span>
+                  <div className="space-y-1.5">
+                    {selectedPlayer.konohaBuffs.map(buff => (
+                      <div key={buff.id} className="p-2.5 bg-slate-950 border border-emerald-900/60 rounded-lg space-y-1 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg">{buff.cardIcon}</span>
+                            <strong className="text-white">{buff.buffName}</strong>
+                          </div>
+                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">
+                            {buff.inflationDelta !== 0 ? `Inflasi ${buff.inflationDelta > 0 ? `+${buff.inflationDelta}%` : `${buff.inflationDelta}%`}` : `BI ${buff.biRateDelta > 0 ? `+${buff.biRateDelta}%` : `${buff.biRateDelta}%`}`}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-300">
+                          {buff.buffEffectDesc}
+                        </p>
+                        <div className="text-[10px] text-amber-300 font-semibold bg-amber-950/30 p-1 rounded border border-amber-900/40">
+                          👑 Perk: {buff.playerPerkText}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <span className="text-xs uppercase font-bold text-amber-400 tracking-wider">
                   Koleksi Surat Tanah (SHM) Milik {selectedPlayer.name} ({ownedTileObjects.length} Dokumen)
@@ -470,6 +501,12 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                             {tile.island && tile.island !== 'SPECIAL' && (
                               <span className="text-[9px] bg-slate-800 text-amber-300 font-bold px-1.5 py-0.2 rounded border border-slate-700">
                                 {tile.islandName || tile.island}
+                              </span>
+                            )}
+                            {tile.id >= 200 && (
+                              <span className="text-[9px] bg-emerald-950 text-emerald-300 font-bold px-1.5 py-0.2 rounded border border-emerald-500/60 flex items-center gap-1 shadow-sm">
+                                <span>💎</span>
+                                <span>Aset Mewah Cuci Uang</span>
                               </span>
                             )}
                             <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/40">

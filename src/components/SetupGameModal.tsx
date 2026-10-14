@@ -59,6 +59,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
         kpkSuspicionLevel: 10,
         isBankrupt: false,
         specialCards: [],
+        konohaBuffs: [],
         color: arch.color,
         avatar: arch.avatar,
         title: arch.title,

@@ -318,7 +318,9 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
               <div className={`w-full rounded-2xl border-2 p-4 sm:p-5 shadow-2xl space-y-3.5 animate-in zoom-in-95 duration-300 ${
                 isMusibah 
                   ? 'bg-slate-900 border-rose-600/90 shadow-rose-950/60' 
-                  : 'bg-slate-900 border-amber-500/90 shadow-amber-950/60'
+                  : activeCard.isKonohaCard
+                    ? 'bg-slate-900 border-emerald-500 shadow-emerald-950/60 ring-2 ring-emerald-500/50'
+                    : 'bg-slate-900 border-amber-500/90 shadow-amber-950/60'
               }`}>
                 {/* Card Top Pill & Roll Result */}
                 <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
@@ -326,7 +328,11 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
                     <span className="text-2xl">{activeCard.icon}</span>
                     <div>
                       <span className={`text-[10px] font-mono font-black px-2 py-0.5 rounded uppercase tracking-wider ${
-                        isMusibah ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-amber-950 text-amber-300 border border-amber-800'
+                        isMusibah 
+                          ? 'bg-rose-950 text-rose-300 border border-rose-800' 
+                          : activeCard.isKonohaCard
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-700 animate-pulse'
+                            : 'bg-amber-950 text-amber-300 border border-amber-800'
                       }`}>
                         {activeCard.categoryBadge}
                       </span>
@@ -341,7 +347,11 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
                       Dadu Keluar:
                     </span>
                     <span className={`text-sm sm:text-base font-mono font-black px-2 py-0.5 rounded-lg border ${
-                      isMusibah ? 'bg-rose-900/50 text-rose-300 border-rose-700' : 'bg-amber-900/50 text-amber-300 border-amber-700'
+                      isMusibah 
+                        ? 'bg-rose-900/50 text-rose-300 border-rose-700' 
+                        : activeCard.isKonohaCard
+                          ? 'bg-emerald-900/50 text-emerald-300 border-emerald-600'
+                          : 'bg-amber-900/50 text-amber-300 border-amber-700'
                     }`}>
                       🎲 {diceNumber} ({activeCard.tier})
                     </span>
@@ -350,10 +360,18 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
 
                 {/* Headline Banner */}
                 <div className={`p-2.5 sm:p-3 rounded-xl border text-center ${
-                  isMusibah ? 'bg-rose-950/60 border-rose-700/80' : 'bg-amber-950/60 border-amber-700/80'
+                  isMusibah 
+                    ? 'bg-rose-950/60 border-rose-700/80' 
+                    : activeCard.isKonohaCard
+                      ? 'bg-gradient-to-r from-emerald-950/80 via-slate-900 to-emerald-950/80 border-emerald-600/80'
+                      : 'bg-amber-950/60 border-amber-700/80'
                 }`}>
                   <h3 className={`text-xs sm:text-sm font-black tracking-wide ${
-                    isMusibah ? 'text-rose-200' : 'text-amber-200'
+                    isMusibah 
+                      ? 'text-rose-200' 
+                      : activeCard.isKonohaCard
+                        ? 'text-emerald-200'
+                        : 'text-amber-200'
                   }`}>
                     {activeCard.headline}
                   </h3>
@@ -363,6 +381,73 @@ export const DrawCardModal: React.FC<DrawCardModalProps> = ({
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-slate-950/70 p-3 rounded-xl border border-slate-800">
                   {activeCard.description}
                 </p>
+
+                {/* KARTU TAKDIR KONOHA - PERMANENT MACROECONOMIC BUFF DISPLAY */}
+                {activeCard.isKonohaCard && activeCard.konohaBuffConfig && (
+                  <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-amber-950/70 border-2 border-emerald-500/80 shadow-[0_0_20px_rgba(16,185,129,0.35)] space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-emerald-800/60 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🍃</span>
+                        <div>
+                          <span className="text-[10px] font-mono font-black uppercase tracking-wider text-emerald-400 block">
+                            REKAYASA MAKROEKONOMI PERMANEN (TAKDIR KONOHA)
+                          </span>
+                          <strong className="text-xs sm:text-sm font-black text-white">
+                            {activeCard.konohaBuffConfig.buffName}
+                          </strong>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500 text-slate-950 shadow">
+                        PERMANEN
+                      </span>
+                    </div>
+
+                    {/* Metric Shifts Badges */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
+                      {/* Inflasi Shift */}
+                      <div className="p-2 rounded-lg bg-slate-950/90 border border-slate-800 flex items-center justify-between">
+                        <span className="text-slate-400 text-[10px]">Laju Inflasi:</span>
+                        <span className={`font-black ${activeCard.konohaBuffConfig.inflationDelta < 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {activeCard.konohaBuffConfig.inflationDelta > 0 ? `+${activeCard.konohaBuffConfig.inflationDelta}%` : `${activeCard.konohaBuffConfig.inflationDelta}%`}
+                        </span>
+                      </div>
+
+                      {/* BI Rate Shift */}
+                      <div className="p-2 rounded-lg bg-slate-950/90 border border-slate-800 flex items-center justify-between">
+                        <span className="text-slate-400 text-[10px]">Suku Bunga BI:</span>
+                        <span className={`font-black ${activeCard.konohaBuffConfig.biRateDelta < 0 ? 'text-cyan-400' : 'text-amber-400'}`}>
+                          {activeCard.konohaBuffConfig.biRateDelta > 0 ? `+${activeCard.konohaBuffConfig.biRateDelta}%` : `${activeCard.konohaBuffConfig.biRateDelta}%`}
+                        </span>
+                      </div>
+
+                      {/* Kurs if any or general trend */}
+                      <div className="p-2 rounded-lg bg-slate-950/90 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
+                        <span className="text-slate-400 text-[10px]">Dampak Moneter:</span>
+                        <span className="font-bold text-amber-300 text-[11px] truncate">
+                          {activeCard.konohaBuffConfig.usdIdrDelta ? `USD -Rp ${Math.abs(activeCard.konohaBuffConfig.usdIdrDelta)}` : 'Skala Nasional'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Description of macroeconomic impact */}
+                    <p className="text-[11px] text-emerald-200/90 bg-emerald-950/40 p-2 rounded-lg border border-emerald-900/60 leading-relaxed">
+                      🏛️ <strong className="text-emerald-300">Dampak Nasional:</strong> {activeCard.konohaBuffConfig.buffEffectDesc}
+                    </p>
+
+                    {/* Personal Player Perk */}
+                    <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-600/60 flex items-start gap-2 text-xs">
+                      <Crown className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-amber-300 block text-[11px] font-black uppercase tracking-wider">
+                          Hak Istimewa Pemain (Perk Permanen):
+                        </strong>
+                        <span className="text-slate-200 text-[11px] font-medium leading-tight block mt-0.5">
+                          {activeCard.konohaBuffConfig.playerPerkText}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Impact / Consequences Box */}
                 <div className="space-y-2">

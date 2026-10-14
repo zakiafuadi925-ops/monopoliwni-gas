@@ -737,6 +737,31 @@ export const soundManager = {
     } catch {
       // Ignore
     }
+  },
+
+  playGavel: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // 3 wood strikes of parliamentary gavel
+      [0, 0.22, 0.44].forEach((delay) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(160, now + delay);
+        osc.frequency.exponentialRampToValueAtTime(45, now + delay + 0.12);
+        gain.gain.setValueAtTime(0.25, now + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.14);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.14);
+      });
+    } catch {
+      // Ignore
+    }
   }
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Player, BoardTile, MacroEconomy } from '../types/game';
 import { LUXURY_LAUNDER_PROPERTIES, LuxuryLaunderProperty } from '../data/luxuryProperties';
 import { formatRupiah, formatRupiahShort } from '../utils/format';
@@ -63,6 +63,25 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
   const perimeterDiscountedCost = selectedPerimeterTile 
     ? Math.round((selectedPerimeterTile.price || 0) * inflationFactor * 0.6) // 40% tax cut
     : 0;
+
+  // AI Automatic Money Laundering Decision
+  useEffect(() => {
+    if (player.isAi) {
+      const timer = setTimeout(() => {
+        // If AI has lots of corrupt cash and unowned luxury property exists
+        const unownedLuxury = LUXURY_LAUNDER_PROPERTIES.filter(p => !luxuryTileOwner(p.id));
+        const affordable = unownedLuxury.filter(p => player.cash >= p.launderPrice * 1.35);
+
+        if (affordable.length > 0) {
+          onLaunderBuyLuxury(affordable[0]);
+        } else {
+          onSkipLaundering();
+        }
+      }, 1400);
+
+      return () => clearTimeout(timer);
+    }
+  }, [player.isAi, player.cash]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">

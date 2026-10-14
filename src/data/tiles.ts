@@ -331,22 +331,18 @@ export const PERIMETER_TILES: BoardTile[] = [
     subtext: 'Beli Rp 68 Jt'
   },
 
-  // Tile 20: PULAU SULAWESI - PALU (PORTAL JALUR TIKUS ORDAL)
+  // Tile 20: PORTAL JALUR TIKUS ORDAL (GERBANG RUTE KORUPSI)
   {
     id: 20,
-    name: 'Surat Tanah Kota Palu & Portal Jalur Ordal',
-    shortName: 'Palu (Ordal)',
-    zone: 'PULAU_SULAWESI',
-    actionType: 'PROPERTY',
+    name: 'Portal Jalur Tikus Ordal (Palu)',
+    shortName: 'Portal Ordal',
+    zone: 'KORUPSI_ROUTE',
+    actionType: 'CORRUPTION_GATE',
     island: 'SULAWESI',
-    islandName: 'Pulau Sulawesi',
+    islandName: 'Pusat Jalur Pintas Ordal',
     cityName: 'Palu',
-    certificateTitle: 'Surat Tanah SHM Kota Palu',
-    price: 58_000_000,
-    rent: 12_500_000,
-    upgradeCost: 29_000_000,
-    description: 'Pusat niaga Teluk Palu. Menyimpan pintu masuk rahasia menuju Rute Korupsi & Proyek Siluman Ordal bagi yang berani mengambil risiko OTT KPK!',
-    subtext: 'Beli Rp 58 Jt (Ada Portal)'
+    description: 'Pintu masuk resmi rahasia menuju Rute Korupsi & Proyek Siluman Ordal! Mendarat di petak ini membuka akses ke Rute Korupsi Tengah (Petak #100 - #103) dengan imbalan puluhan hingga ratusan juta rupiah serta pencucian uang aset mewah, namun berisiko sidak BPK dan OTT KPK.',
+    subtext: 'Gerbang Rute Korupsi'
   },
 
   // Tile 21: GEDUNG DPR RI SENAYAN

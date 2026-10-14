@@ -49,7 +49,17 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
 }) => {
   const inflationFactor = 1 + (macro.inflationRate / 100);
   const adjustedPrice = currentTile.price ? Math.round(currentTile.price * inflationFactor) : 0;
-  const adjustedUpgrade = currentTile.upgradeCost ? Math.round(currentTile.upgradeCost * inflationFactor) : 0;
+  
+  let upgradeDiscount = 0;
+  if (player.konohaBuffs?.some(b => b.type === 'INTEREST_RATE_CUT')) {
+    upgradeDiscount = Math.max(upgradeDiscount, 0.30);
+  }
+  if (player.konohaBuffs?.some(b => b.type === 'INFLATION_REDUCTION')) {
+    upgradeDiscount = Math.max(upgradeDiscount, 0.20);
+  }
+  const adjustedUpgrade = currentTile.upgradeCost 
+    ? Math.round(currentTile.upgradeCost * inflationFactor * (1 - upgradeDiscount)) 
+    : 0;
 
   const canBuy = hasRolled && 
     currentTile.actionType === 'PROPERTY' && 
@@ -206,6 +216,20 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
               <span className="hidden sm:inline">Kartu Khusus:</span>
               <span className="font-mono bg-amber-500 text-slate-950 px-1.5 py-0.2 rounded font-black text-[10px]">
                 {player.specialCards.length}
+              </span>
+            </div>
+          )}
+
+          {/* Konoha Macro Buffs Badge if any */}
+          {player.konohaBuffs && player.konohaBuffs.length > 0 && (
+            <div 
+              title={player.konohaBuffs.map(b => `${b.buffName}: ${b.playerPerkText}`).join(' | ')}
+              className="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/60 text-emerald-300 text-xs font-bold flex items-center gap-1.5 cursor-help"
+            >
+              <span>🍃</span>
+              <span className="hidden sm:inline">Buff Konoha:</span>
+              <span className="font-mono bg-emerald-500 text-slate-950 px-1.5 py-0.2 rounded font-black text-[10px]">
+                {player.konohaBuffs.length}
               </span>
             </div>
           )}

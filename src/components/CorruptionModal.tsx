@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Player } from '../types/game';
 import { ShieldAlert, AlertTriangle, ArrowRight, Dices, Skull } from 'lucide-react';
 import { soundManager } from '../utils/sound';
@@ -90,6 +90,16 @@ export const CorruptionAuditModal: React.FC<CorruptionAuditModalProps> = ({
 }) => {
   const [rolling, setRolling] = useState(false);
   const [rolledNumber, setRolledNumber] = useState<number | null>(null);
+
+  // Auto-roll dice for AI players so turn does not stall
+  useEffect(() => {
+    if (player.isAi && !rolling && rolledNumber === null) {
+      const timer = setTimeout(() => {
+        handleTestFate();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [player.isAi, rolling, rolledNumber]);
 
   const handleTestFate = () => {
     soundManager.playDiceRoll();

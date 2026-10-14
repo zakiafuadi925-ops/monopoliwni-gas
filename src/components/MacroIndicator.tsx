@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MacroEconomy, ActiveLaw } from '../types/game';
 import { formatPercent, formatRupiahShort } from '../utils/format';
-import { TrendingUp, AlertTriangle, ShieldCheck, Scale, Landmark, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
+import { TrendingUp, AlertTriangle, ShieldCheck, Scale, Landmark, ChevronDown, ChevronUp, Volume2, Sparkles, X, Crown } from 'lucide-react';
 
 interface MacroIndicatorProps {
   macro: MacroEconomy;
@@ -25,6 +25,7 @@ export const MacroIndicator: React.FC<MacroIndicatorProps> = ({
   totalPlayers,
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [showBuffsModal, setShowBuffsModal] = useState<boolean>(false);
   const currentMonthName = MONTH_NAMES[(macro.monthIndex - 1) % 12];
   const isCrisis = macro.trend === 'CRISIS';
 
@@ -232,6 +233,124 @@ export const MacroIndicator: React.FC<MacroIndicatorProps> = ({
                 <span className="text-slate-500 font-normal">Belum ada UU</span>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Konoha Active Macro Buffs Strip */}
+      {macro.activeKonohaBuffs && macro.activeKonohaBuffs.length > 0 && isExpanded && (
+        <div className="relative z-10 mt-2.5 pt-2 border-t border-emerald-900/60 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm">🍃</span>
+            <span className="text-[10px] sm:text-[11px] font-black text-emerald-400 uppercase tracking-wider">
+              Takdir Konoha Aktif ({macro.activeKonohaBuffs.length} Kebijakan):
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {macro.activeKonohaBuffs.map((buff) => (
+              <button
+                key={buff.id}
+                onClick={() => setShowBuffsModal(true)}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-950/80 hover:bg-emerald-900/90 border border-emerald-600/80 text-emerald-200 transition-colors shadow-sm cursor-pointer"
+                title="Klik untuk melihat rincian kebijakan"
+              >
+                <span>{buff.cardIcon}</span>
+                <span>{buff.buffName}</span>
+                <span className="text-emerald-400 font-black">
+                  ({buff.inflationDelta !== 0 ? `Inf ${buff.inflationDelta > 0 ? `+${buff.inflationDelta}%` : `${buff.inflationDelta}%`}` : `BI ${buff.biRateDelta > 0 ? `+${buff.biRateDelta}%` : `${buff.biRateDelta}%`}`})
+                </span>
+              </button>
+            ))}
+
+            <button
+              onClick={() => setShowBuffsModal(true)}
+              className="text-[10px] font-bold text-amber-300 hover:text-amber-200 underline cursor-pointer ml-1"
+            >
+              Rincian Kebijakan →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Rincian Kebijakan Takdir Konoha */}
+      {showBuffsModal && macro.activeKonohaBuffs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="max-w-md w-full bg-slate-900 border-2 border-emerald-500 rounded-2xl shadow-2xl p-4 sm:p-5 text-slate-100 space-y-3.5 my-auto max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-emerald-900/80 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🍃</span>
+                <div>
+                  <span className="text-[10px] font-mono font-black text-emerald-400 uppercase tracking-wider block">
+                    KABINET MAKROEKONOMI
+                  </span>
+                  <h3 className="text-sm sm:text-base font-black text-white">
+                    Kebijakan Takdir Konoha Aktif
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBuffsModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-2.5 pr-1 flex-1">
+              {macro.activeKonohaBuffs.map((buff, i) => (
+                <div
+                  key={buff.id || i}
+                  className="p-3 rounded-xl bg-slate-950 border border-emerald-800/70 space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xl">{buff.cardIcon}</span>
+                      <div>
+                        <strong className="text-white text-xs block">{buff.buffName}</strong>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          Ditarik oleh: <span className="font-bold text-amber-300">{buff.drawnByPlayerName}</span> · {buff.timestamp}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-700 shrink-0">
+                      PERMANEN
+                    </span>
+                  </div>
+
+                  {/* Impact Badges */}
+                  <div className="flex items-center gap-2 text-[10px] font-mono">
+                    <span className={`px-2 py-0.5 rounded ${buff.inflationDelta < 0 ? 'bg-emerald-950 text-emerald-300' : 'bg-rose-950 text-rose-300'} border border-slate-800`}>
+                      Inflasi: {buff.inflationDelta > 0 ? `+${buff.inflationDelta}%` : `${buff.inflationDelta}%`}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded ${buff.biRateDelta < 0 ? 'bg-cyan-950 text-cyan-300' : 'bg-amber-950 text-amber-300'} border border-slate-800`}>
+                      BI-Rate: {buff.biRateDelta > 0 ? `+${buff.biRateDelta}%` : `${buff.biRateDelta}%`}
+                    </span>
+                    {buff.usdIdrDelta && (
+                      <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-slate-800">
+                        USD -Rp {Math.abs(buff.usdIdrDelta)}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-300 leading-relaxed bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                    🏛️ {buff.buffEffectDesc}
+                  </p>
+
+                  <div className="flex items-center gap-1.5 text-[10px] text-amber-300 bg-amber-950/30 p-1.5 rounded border border-amber-900/40">
+                    <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+                    <span>Perk Pemain: {buff.playerPerkText}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowBuffsModal(false)}
+              className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-slate-950 font-black text-xs rounded-xl transition-all cursor-pointer shadow-md"
+            >
+              Tutup Rincian
+            </button>
           </div>
         </div>
       )}

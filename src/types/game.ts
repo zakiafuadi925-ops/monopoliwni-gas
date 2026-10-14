@@ -45,6 +45,31 @@ export interface SpecialCardItem {
 
 export type EventTier = 'BERAT' | 'SEDANG' | 'RINGAN';
 
+export type KonohaBuffType = 
+  | 'INFLATION_REDUCTION' 
+  | 'INFLATION_BOOM' 
+  | 'INTEREST_RATE_CUT' 
+  | 'INTEREST_RATE_HIKE' 
+  | 'RUPIAH_STRENGTHEN';
+
+export interface KonohaMacroBuff {
+  id: string;
+  cardId: string;
+  cardTitle: string;
+  cardIcon: string;
+  drawnByPlayerId: string;
+  drawnByPlayerName: string;
+  drawnByPlayerColor: string;
+  type: KonohaBuffType;
+  inflationDelta: number; // e.g. -1.5 or +2.0
+  biRateDelta: number;    // e.g. -1.0 or +1.5
+  usdIdrDelta?: number;   // e.g. -800
+  buffName: string;
+  buffEffectDesc: string;
+  playerPerkText: string;
+  timestamp: string;
+}
+
 export interface EventOutcomeCard {
   id: string;
   eventType: 'MUSIBAH' | 'TAKDIR';
@@ -62,6 +87,17 @@ export interface EventOutcomeCard {
   confiscatesLandDeed?: boolean;
   specialRewardCard?: SpecialCardItem;
   icon: string;
+  // Kartu Takdir Konoha Extensions
+  isKonohaCard?: boolean;
+  konohaBuffConfig?: {
+    type: KonohaBuffType;
+    inflationDelta: number;
+    biRateDelta: number;
+    usdIdrDelta?: number;
+    buffName: string;
+    buffEffectDesc: string;
+    playerPerkText: string;
+  };
 }
 
 export interface BoardTile {
@@ -121,6 +157,7 @@ export interface Player {
   avatar: string;
   title: string;
   specialCards?: SpecialCardItem[];
+  konohaBuffs?: KonohaMacroBuff[];
   stats: {
     totalRentEarned: number;
     totalRentPaid: number;
@@ -138,6 +175,7 @@ export interface MacroEconomy {
   monthIndex: number;    // 1 to 12 (Fiscal Year)
   weekIndex: number;     // 1 to 4 (Weeks per Month)
   year: number;          // 2026
+  activeKonohaBuffs?: KonohaMacroBuff[];
 }
 
 export interface MacroHistoryPoint {

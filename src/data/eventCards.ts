@@ -159,9 +159,59 @@ export const MUSIBAH_EVENT_CARDS: EventOutcomeCard[] = [
   }
 ];
 
-// 3-Tier Outcome Cards for TAKDIR (Mega Windfall, Moderate Grant, Mild Daily Fortune)
+// 3-Tier Outcome Cards for TAKDIR (Mega Windfall, Moderate Grant, Mild Daily Fortune + Kartu Takdir Konoha)
 export const TAKDIR_EVENT_CARDS: EventOutcomeCard[] = [
   // --- TIER BERAT / ISTIMEWA (Dadu 1 & 2) ---
+  {
+    id: 'takdir_konoha_intervensi_moneter',
+    eventType: 'TAKDIR',
+    tier: 'BERAT',
+    diceRange: [1, 2],
+    diceRangeText: 'Dadu 1 - 2 (Rezeki Akbar Konoha)',
+    title: 'Operasi Pasar Beras SPHP & Subsidi Energi Konoha',
+    headline: 'INFLASI PERMANEN TURUN -1.5% & DISKON PROPERTI!',
+    categoryBadge: '🍃 TAKDIR KONOHA · DEFLASI STRATEGIS',
+    description: 'Operasi pasar beras SPHP dan subsidi energi digelontorkan secara masif oleh pemerintah pusat Konoha! Laju inflasi nasional ditekan turun permanen sebesar -1.5%, menstabilkan harga-harga di seluruh nusantara. Anda menerima insentif fiskal pembangunan properti!',
+    confiscatesLandDeed: false,
+    cashChange: 30_000_000,
+    stressChange: -25,
+    politicalChange: 25,
+    icon: '🍃',
+    isKonohaCard: true,
+    konohaBuffConfig: {
+      type: 'INFLATION_REDUCTION',
+      inflationDelta: -1.5,
+      biRateDelta: -0.25,
+      buffName: 'Insentif Deflasi SPHP Konoha',
+      buffEffectDesc: 'Laju inflasi tahunan terpangkas permanen -1.5%, harga barang & beban hidup terkendali.',
+      playerPerkText: 'Diskon permanen 20% biaya upgrade bangunan dan kebal denda petak retribusi!'
+    }
+  },
+  {
+    id: 'takdir_konoha_suku_bunga_deposito',
+    eventType: 'TAKDIR',
+    tier: 'BERAT',
+    diceRange: [1, 2],
+    diceRangeText: 'Dadu 1 - 2 (Rezeki Akbar Konoha)',
+    title: 'Paket Suku Bunga Emas Bank Sentral Konoha',
+    headline: 'SUKU BUNGA BI PERMANEN NAIK +1.50% & DIVIDEN DEPOSITO!',
+    categoryBadge: '🍃 TAKDIR KONOHA · HAWKISH YIELD',
+    description: 'Bank Sentral Konoha menaikkan suku bunga acuan BI-Rate permanen sebesar +1.50% demi menahan capital outflow! Anda memegang sertifikat obligasi emas negara: setiap kali melewati START, Anda menerima dividen bunga deposito pasif 5% dari kas mengendap!',
+    confiscatesLandDeed: false,
+    cashChange: 28_000_000,
+    stressChange: -20,
+    politicalChange: 22,
+    icon: '🏛️',
+    isKonohaCard: true,
+    konohaBuffConfig: {
+      type: 'INTEREST_RATE_HIKE',
+      inflationDelta: -0.5,
+      biRateDelta: 1.50,
+      buffName: 'Dividen Deposito Hawkish Konoha',
+      buffEffectDesc: 'Suku bunga acuan BI-Rate dinaikkan permanen +1.50%, imbal hasil instrumen pasar uang meroket.',
+      playerPerkText: 'Mendapat dividen bunga deposito pasif 5% dari saldo kas setiap kali melewati START!'
+    }
+  },
   {
     id: 'takdir_ganti_untung_psn',
     eventType: 'TAKDIR',
@@ -198,6 +248,56 @@ export const TAKDIR_EVENT_CARDS: EventOutcomeCard[] = [
   },
 
   // --- TIER SEDANG (Dadu 3 & 4) ---
+  {
+    id: 'takdir_konoha_kredit_usaha_rakyat',
+    eventType: 'TAKDIR',
+    tier: 'SEDANG',
+    diceRange: [3, 4],
+    diceRangeText: 'Dadu 3 - 4 (Takdir Sedang Konoha)',
+    title: 'Kebijakan Bunga Murah Kredit Usaha Konoha (KUR 0%)',
+    headline: 'SUKU BUNGA BI PERMANEN TURUN -1.00% & STIMULUS BISNIS!',
+    categoryBadge: '🍃 TAKDIR KONOHA · BUNGA MURAH',
+    description: 'Pemerintah Konoha dan OJK menyepakati pelonggaran moneter agresif! Suku bunga acuan BI dipangkas permanen -1.00% untuk memacu ekspansi usaha. Sebagai pelopor, Anda mendapat diskon permanen 30% untuk seluruh peningkatan level properti!',
+    confiscatesLandDeed: false,
+    cashChange: 20_000_000,
+    stressChange: -15,
+    politicalChange: 16,
+    icon: '📉',
+    isKonohaCard: true,
+    konohaBuffConfig: {
+      type: 'INTEREST_RATE_CUT',
+      inflationDelta: 0.3,
+      biRateDelta: -1.00,
+      buffName: 'Stimulus Bunga Murah KUR Konoha',
+      buffEffectDesc: 'Suku bunga acuan BI dipangkas permanen -1.00% untuk memicu ekspansi kredit modal kerja.',
+      playerPerkText: 'Diskon 30% biaya upgrade seluruh properti milikmu seumur hidup!'
+    }
+  },
+  {
+    id: 'takdir_konoha_boom_infrastruktur',
+    eventType: 'TAKDIR',
+    tier: 'SEDANG',
+    diceRange: [3, 4],
+    diceRangeText: 'Dadu 3 - 4 (Takdir Sedang Konoha)',
+    title: 'Injeksi Likuiditas Mega Proyek IKN Nusantara Konoha',
+    headline: 'INFLASI NAIK PERMANEN +2.0% & SEWA PROPERTI +25%!',
+    categoryBadge: '🍃 TAKDIR KONOHA · BOOM PROPERTI',
+    description: 'Pemerintah Konoha mencetak uang dan menggelontorkan likuiditas raksasa untuk mega proyek! Inflasi naik permanen +2.0%, namun seluruh aset properti milik Anda mengalami lonjakan tarif sewa permanen sebesar +25% dari penyewa!',
+    confiscatesLandDeed: false,
+    cashChange: 22_000_000,
+    stressChange: -10,
+    politicalChange: 18,
+    icon: '🏗️',
+    isKonohaCard: true,
+    konohaBuffConfig: {
+      type: 'INFLATION_BOOM',
+      inflationDelta: 2.0,
+      biRateDelta: 0.50,
+      buffName: 'Booming Sewa Properti Konoha',
+      buffEffectDesc: 'Inflasi terkatrol naik permanen +2.0% akibat gelontoran likuiditas proyek skala masif.',
+      playerPerkText: 'Tarif sewa seluruh properti milikmu mendapat bonus kenaikan +25% permanen!'
+    }
+  },
   {
     id: 'takdir_hibah_umkm',
     eventType: 'TAKDIR',
@@ -247,6 +347,32 @@ export const TAKDIR_EVENT_CARDS: EventOutcomeCard[] = [
   },
 
   // --- TIER RINGAN (Dadu 5 & 6) ---
+  {
+    id: 'takdir_konoha_devisa_remitansi',
+    eventType: 'TAKDIR',
+    tier: 'RINGAN',
+    diceRange: [5, 6],
+    diceRangeText: 'Dadu 5 - 6 (Takdir Ringan Konoha)',
+    title: 'Surplus Devisa Hasil Ekspor & Remitansi Konoha',
+    headline: 'RUPIAH MENGUAT RP 800 & INFLASI MEREDA -0.6%!',
+    categoryBadge: '🍃 TAKDIR KONOHA · KURS KUAT',
+    description: 'Surplus neraca perdagangan komoditas dan aliran remitansi devisa pekerja Konoha membanjiri cadangan bank sentral! Kurs menguat Rp 800/USD dan inflasi mereda -0.6%. Anda memperoleh keuntungan apresiasi kurs!',
+    confiscatesLandDeed: false,
+    cashChange: 8_000_000,
+    stressChange: -10,
+    politicalChange: 12,
+    icon: '💵',
+    isKonohaCard: true,
+    konohaBuffConfig: {
+      type: 'RUPIAH_STRENGTHEN',
+      inflationDelta: -0.6,
+      biRateDelta: -0.30,
+      usdIdrDelta: -800,
+      buffName: 'Apresiasi Devisa Moneter Konoha',
+      buffEffectDesc: 'Cadangan devisa surplus, Rupiah menguat Rp 800/USD dan inflasi mereda -0.6%.',
+      playerPerkText: 'Bebas denda bea cukai dan diskon 50% seluruh tagihan fasilitas kota!'
+    }
+  },
   {
     id: 'takdir_undian_bank',
     eventType: 'TAKDIR',
