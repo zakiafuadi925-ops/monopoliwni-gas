@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { DiceRollOverlay } from './DiceRollOverlay';
 import { PlayerToken } from './PlayerToken';
+import { CorruptionRadarScan, calculateRadarSweepDuration, getRadarThreatInfo } from './CorruptionRadarScan';
 
 interface BoardProps {
   perimeterTiles: BoardTile[];
@@ -77,6 +78,21 @@ export const Board: React.FC<BoardProps> = ({
 }) => {
   const [boardViewMode, setBoardViewMode] = useState<'GRID' | 'ISLANDS' | 'TRACK'>('GRID');
   const activePlayer = players[activePlayerIndex] || null;
+
+  // KPK Radar Scan parameters for Corruption Route
+  const playersOnCorruption = players.filter(p => !p.isBankrupt && (p.isInCorruptionRoute || (p.position >= 100 && p.position <= 103)));
+  const isAnyoneInCorruption = playersOnCorruption.length > 0;
+  const activePlayerInCorruption = !!activePlayer && (activePlayer.isInCorruptionRoute || (activePlayer.position >= 100 && activePlayer.position <= 103));
+
+  // If active player is in corruption route, their suspicion level controls the radar sweep speed
+  // Otherwise, highest suspicion among players currently on the route, or active player's baseline
+  const corruptionSuspicionLevel = activePlayerInCorruption
+    ? activePlayer.kpkSuspicionLevel
+    : (isAnyoneInCorruption ? Math.max(...playersOnCorruption.map(p => p.kpkSuspicionLevel)) : (activePlayer?.kpkSuspicionLevel ?? 15));
+
+  const radarSweepDuration = calculateRadarSweepDuration(corruptionSuspicionLevel);
+  const radarThreat = getRadarThreatInfo(corruptionSuspicionLevel);
+  const radarRPM = Math.round(60 / radarSweepDuration);
 
   // Inflation-adjusted rent & price calculation
   const getAdjustedValues = (tile: BoardTile) => {
@@ -346,33 +362,107 @@ export const Board: React.FC<BoardProps> = ({
               </div>
             </div>
 
-            {/* Middle of Center: THE CORRUPTION ROUTE (Jalur Korupsi & Nepotisme) */}
-            <div className="my-1 sm:my-2 p-1.5 sm:p-2.5 bg-gradient-to-r from-amber-950/50 via-rose-950/40 to-amber-950/50 border sm:border-2 border-dashed border-amber-500/60 rounded-lg sm:rounded-xl">
-              <div className="flex items-center justify-between mb-1 px-1">
-                <div className="flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 text-amber-400 animate-pulse" />
-                  <span className="text-[9px] sm:text-xs font-bold text-amber-300 uppercase tracking-wide">
-                    RUTE KORUPSI (JALUR TIKUS)
-                  </span>
+            {/* Middle of Center: THE CORRUPTION ROUTE (Jalur Korupsi & Nepotisme) with DYNAMIC RADAR SCAN */}
+            <div 
+              className={`my-1 sm:my-2 p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border-2 relative overflow-hidden transition-all duration-500 ${radarThreat.borderColor} ${radarThreat.bgColor}`}
+              style={{
+                boxShadow: (isAnyoneInCorruption || activePlayerInCorruption) 
+                  ? `0 0 25px ${radarThreat.glowColor}, inset 0 0 15px ${radarThreat.glowColor}`
+                  : '0 0 10px rgba(0,0,0,0.5)'
+              }}
+            >
+              {/* Background Radar Grid & Rotating Sweep Beam */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
+                {/* Tactical concentric range circles */}
+                <div className="absolute w-[95%] h-[95%] rounded-full border border-slate-700/40 border-dashed" />
+                <div className="absolute w-[70%] h-[70%] rounded-full border border-slate-700/50" />
+                <div className="absolute w-[45%] h-[45%] rounded-full border border-slate-800/80" />
+                <div className="absolute w-[20%] h-[20%] rounded-full border border-slate-800" />
+                
+                {/* Crosshairs */}
+                <div className="absolute inset-x-0 top-1/2 h-px bg-slate-700/40 -translate-y-1/2" />
+                <div className="absolute inset-y-0 left-1/2 w-px bg-slate-700/40 -translate-x-1/2" />
+
+                {/* THE ROTATING RADAR SWEEP LINE (Core requested visual effect) */}
+                <div
+                  className="absolute w-[180%] h-[180%] rounded-full pointer-events-none"
+                  style={{
+                    background: radarThreat.sweepGradient,
+                    animation: `radar-sweep ${radarSweepDuration}s linear infinite`,
+                    transformOrigin: 'center center'
+                  }}
+                >
+                  {/* Leading sharp radar ray beam with intense phosphor drop shadow */}
+                  <div 
+                    className="absolute top-0 left-1/2 w-[2px] h-1/2 -translate-x-1/2"
+                    style={{
+                      backgroundColor: radarThreat.lineColor,
+                      boxShadow: `0 0 10px ${radarThreat.lineColor}, 0 0 18px ${radarThreat.lineColor}`
+                    }}
+                  />
                 </div>
-                <span className="text-[8px] sm:text-[10px] text-rose-300 font-mono font-medium hidden xs:inline">
-                  Risiko OTT KPK!
-                </span>
               </div>
 
-              <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
+              {/* Radar Telemetry Header */}
+              <div className="relative z-10 flex items-center justify-between mb-1 px-1 bg-slate-950/75 py-0.5 rounded backdrop-blur-sm border border-slate-800/70">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {/* Mini Rotating Radar Icon */}
+                  <div className="relative w-4 h-4 rounded-full border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center bg-slate-950">
+                    <div 
+                      className="absolute inset-0 rounded-full"
+                      style={{
+                        background: radarThreat.sweepGradient,
+                        animation: `radar-sweep ${radarSweepDuration}s linear infinite`,
+                        transformOrigin: 'center center'
+                      }}
+                    />
+                    <div className="w-1 h-1 rounded-full relative z-10" style={{ backgroundColor: radarThreat.lineColor }} />
+                  </div>
+
+                  <span className="text-[9px] sm:text-xs font-bold text-amber-300 uppercase tracking-wide truncate">
+                    RUTE KORUPSI (RADAR SIBER KPK)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className={`text-[8px] sm:text-[10px] font-mono font-bold ${radarThreat.textColor}`}>
+                    {radarRPM} RPM ({radarSweepDuration}s/rot)
+                  </span>
+                  <span className={`text-[7px] sm:text-[9px] font-mono font-black px-1.5 py-0.2 rounded border ${radarThreat.borderColor} ${radarThreat.bgColor} ${radarThreat.textColor}`}>
+                    {radarThreat.code.split(' · ')[0]}
+                  </span>
+                </div>
+              </div>
+
+              {/* Live active player warning banner if player is currently traversing the route */}
+              {activePlayerInCorruption && (
+                <div className="relative z-10 mb-1 px-1.5 py-0.5 rounded bg-rose-950/85 border border-rose-600/80 text-[8px] sm:text-[10px] font-mono flex items-center justify-between gap-1 text-rose-200">
+                  <div className="flex items-center gap-1 truncate">
+                    <ShieldAlert className="w-3 h-3 text-rose-400 shrink-0 animate-pulse" />
+                    <span className="font-bold truncate">
+                      POSISI ANDA TERPANTAU RADAR! {corruptionSuspicionLevel}% SUSPICION
+                    </span>
+                  </div>
+                  <span className="text-rose-400 font-extrabold shrink-0 hidden sm:inline">
+                    {corruptionSuspicionLevel > 50 ? '⚡ DADU 1-4 TERTANGKAP OTT!' : '⚠️ DADU 1-3 TERTANGKAP!'}
+                  </span>
+                </div>
+              )}
+
+              {/* Corruption Route Tiles (4 Nodes) */}
+              <div className="relative z-10 grid grid-cols-4 gap-1 sm:gap-1.5">
                 {corruptionTiles.map(cTile => {
                   const playersHere = getPlayersOnTile(cTile.id);
                   const isSelected = selectedTile?.id === cTile.id;
 
                   const getTileStyle = () => {
                     if (cTile.id === 103) {
-                      return 'border-rose-600 bg-rose-950/60 text-rose-200';
+                      return 'border-rose-600 bg-rose-950/80 text-rose-200 shadow-[0_0_10px_rgba(225,29,72,0.3)]';
                     }
                     if (cTile.id === 102) {
-                      return 'border-emerald-500/80 bg-emerald-950/50 text-emerald-200';
+                      return 'border-emerald-500/80 bg-emerald-950/80 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
                     }
-                    return 'border-amber-500/70 bg-amber-950/40 text-amber-200';
+                    return 'border-amber-500/70 bg-amber-950/70 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.2)]';
                   };
 
                   return (
@@ -380,7 +470,7 @@ export const Board: React.FC<BoardProps> = ({
                       key={cTile.id}
                       onClick={() => onTileClick(cTile)}
                       className={`
-                        p-1 sm:p-2 rounded sm:rounded-lg border text-center cursor-pointer transition-all flex flex-col justify-between
+                        p-1 sm:p-2 rounded sm:rounded-lg border text-center cursor-pointer transition-all flex flex-col justify-between backdrop-blur-sm
                         ${isSelected ? 'ring-2 ring-rose-400 scale-105' : 'hover:border-amber-400'}
                         ${getTileStyle()}
                       `}
@@ -752,10 +842,13 @@ export const Board: React.FC<BoardProps> = ({
           </div>
 
           {/* Special Corruption Route in Track View */}
-          <div className="mt-4 pt-3 border-t border-slate-800">
-            <span className="text-xs font-bold text-rose-400 uppercase tracking-wide block mb-2">
-              Jalur Tikus Ordal (Rute Korupsi Tengah)
-            </span>
+          {/* Special Corruption Route in Track View with Dynamic Radar Scan */}
+          <div className="mt-4 pt-3 border-t border-slate-800 space-y-2">
+            <CorruptionRadarScan 
+              player={activePlayer} 
+              suspicionLevel={corruptionSuspicionLevel}
+              variant="banner" 
+            />
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
               {corruptionTiles.map(cTile => {
                 const playersHere = getPlayersOnTile(cTile.id);

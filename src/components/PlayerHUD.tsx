@@ -157,6 +157,27 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
                   </span>
                 </div>
               )}
+              {player.isInCorruptionRoute && (
+                <div 
+                  className="relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-950/90 border border-amber-500/80 text-amber-300 text-[10px] font-bold shadow-[0_0_12px_rgba(245,158,11,0.5)] shrink-0"
+                  title={`Sedang di Jalur Tikus (Rute Korupsi) - Radar KPK: ${player.kpkSuspicionLevel}%`}
+                >
+                  <div className="relative w-3.5 h-3.5 rounded-full border border-amber-500/70 overflow-hidden shrink-0 flex items-center justify-center bg-slate-950">
+                    <div 
+                      className="absolute inset-0 rounded-full"
+                      style={{
+                        background: 'conic-gradient(from 0deg, rgba(245,158,11,0.85) 0deg, rgba(245,158,11,0.25) 45deg, transparent 65deg)',
+                        animation: `radar-sweep ${Math.max(0.65, Number((5.5 - Math.pow(player.kpkSuspicionLevel / 100, 1.15) * 4.75).toFixed(2)))}s linear infinite`,
+                        transformOrigin: 'center center'
+                      }}
+                    />
+                    <div className="w-1 h-1 rounded-full bg-amber-400 relative z-10" />
+                  </div>
+                  <span className="font-mono font-black text-amber-300">
+                    RUTE KORUPSI
+                  </span>
+                </div>
+              )}
               {player.inJail && (
                 <span className="text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800 px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
                   <ShieldAlert className="w-3 h-3 text-rose-400" />

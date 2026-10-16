@@ -1775,33 +1775,53 @@ export default function App() {
     if (caught) {
       soundManager.playSirenOTT();
 
-      // KPK OTT Encounter
-      const bribeRequired = 20_000_000;
+      // KPK OTT Encounter - Bribe is now Rp 65.000.000 reflecting high stakes
+      const bribeRequired = 65_000_000;
       if (activePlayer.isAi) {
         if (activePlayer.cash >= bribeRequired) {
           soundManager.playCash();
           setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
             ...p,
             cash: p.cash - bribeRequired,
-            kpkSuspicionLevel: 10,
+            politicalInfluence: Math.max(0, p.politicalInfluence - 30),
+            kpkSuspicionLevel: 30,
+            stress: Math.min(100, p.stress + 20),
             isInCorruptionRoute: false,
             position: 21 // safely arrives at Senayan
           } : p));
-          addLog(`${activePlayer.name} menyuap oknum penyidik KPK sebesar Rp 20.000.000! Selamat dari vonis penjara dan lolos ke DPR Senayan.`, 'CASH', activePlayer.id);
+          addLog(`${activePlayer.name} (AI) membayar uang damai penanganan perkara Tipikor Rp 65.000.000! Pengaruh politik terpangkas -30 dan stres naik.`, 'CASH', activePlayer.id);
         } else {
-          // AI sent to jail
-          setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
-            ...p,
-            cash: Math.round(p.cash * 0.5),
-            stress: Math.min(100, p.stress + 50),
-            inJail: true,
-            jailTurnsLeft: 2,
-            isInCorruptionRoute: false,
-            position: 14,
-            kpkSuspicionLevel: 10,
-            stats: { ...p.stats, timesInJail: p.stats.timesInJail + 1 }
-          } : p));
-          addLog(`${activePlayer.name} (AI) tertangkap OTT KPK & saldo tidak cukup suap! Dijebloskan ke Lapas Sukamiskin.`, 'DANGER', activePlayer.id);
+          // AI sent to jail with SEVERE PUNISHMENT: 80% cash seized, properties confiscated, 4 turns in Sukamiskin
+          const aiProps = perimeterTiles.filter(t => t.ownerId === activePlayer.id)
+            .sort((a, b) => (b.price || 0) - (a.price || 0));
+          const seizedProps = aiProps.slice(0, 2);
+          const seizedIds = seizedProps.map(t => t.id);
+
+          if (seizedIds.length > 0) {
+            setPerimeterTiles(prev => prev.map(t => seizedIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+          }
+
+          setPlayers(prev => prev.map(p => {
+            if (p.id !== activePlayer.id) return p;
+            const updated = {
+              ...p,
+              cash: Math.max(0, Math.round(p.cash * 0.20)), // 80% cash seized
+              ownedProperties: p.ownedProperties.filter(id => !seizedIds.includes(id)),
+              stress: 100, // Maximum stress from arrest
+              politicalInfluence: Math.max(0, p.politicalInfluence - 50),
+              inJail: true,
+              jailTurnsLeft: 4, // 4 turns locked in Sukamiskin
+              isInCorruptionRoute: false,
+              position: 14,
+              kpkSuspicionLevel: 40,
+              stats: { ...p.stats, timesInJail: p.stats.timesInJail + 1 }
+            };
+            checkStressThreshold(updated);
+            return updated;
+          }));
+
+          const seizedNames = seizedProps.map(p => p.name).join(', ') || 'tidak ada aset tanah';
+          addLog(`EKSEKUSI OTT KPK BERAT! ${activePlayer.name} (AI) terbukti korupsi! HUKUMAN BERAT: 80% kas disita negara, aset disita (${seizedNames}), divonis 4 putaran Lapas Sukamiskin, hak politik -50, & stres 100%!`, 'DANGER', activePlayer.id);
         }
 
         if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
@@ -1809,7 +1829,7 @@ export default function App() {
           handleEndTurn();
         }, 1400);
       } else {
-        // Human player gets the prompt to pay bribe or refuse
+        // Human player gets the prompt to pay bribe or face full severe sentence
         setShowKpkBribe(true);
       }
     } else {
@@ -1838,7 +1858,7 @@ export default function App() {
   const handlePayKpkBribe = () => {
     setShowKpkBribe(false);
     if (!activePlayer || activePlayer.isBankrupt) return;
-    const bribeAmount = 20_000_000;
+    const bribeAmount = 65_000_000;
     if (activePlayer.cash < bribeAmount) {
       // Offer crisis modal to sell properties if they want to pay the bribe
       const ownedTiles = perimeterTiles.filter(t => t.ownerId === activePlayer.id);
@@ -1848,10 +1868,10 @@ export default function App() {
           crisisType: 'KPK_BRIBE',
           payer: activePlayer,
           amountDue: bribeAmount,
-          title: 'OTT KPK · Uang Pengamanan Perkara',
+          title: 'OTT KPK · Uang Pengamanan Perkara Tipikor',
           subtitle: 'KRISIS KAS TUNAI · SUAP OKNUM PENYIDIK',
-          description: `Untuk menghindari vonis penjara Lapas Sukamiskin, Anda harus membayar uang suap Rp 20.000.000. Jual aset tanah Anda untuk melunasi uang damai ini.`,
-          causeDesc: 'suap OTT KPK Rp 20.000.000',
+          description: `Untuk menghindari hukuman berat (sita 80% kas, sita aset, dan 4 putaran penjara Sukamiskin), Anda harus membayar uang damai Rp 65.000.000. Jual aset tanah Anda untuk melunasi biaya ini.`,
+          causeDesc: 'suap OTT KPK Rp 65.000.000',
           recipientName: 'Oknum Penyidik KPK',
           recipientAvatar: '🚨',
           onPaySuccess: (updatedPayer) => {
@@ -1859,17 +1879,18 @@ export default function App() {
             setPlayers(prev => prev.map(p => p.id === updatedPayer.id ? {
               ...p,
               cash: p.cash - bribeAmount,
+              politicalInfluence: Math.max(0, p.politicalInfluence - 30),
+              stress: Math.min(100, p.stress + 20),
               isInCorruptionRoute: false,
               position: 21,
-              kpkSuspicionLevel: 10,
-              stress: Math.max(0, p.stress - 10)
+              kpkSuspicionLevel: 30
             } : p));
-            addLog(`${updatedPayer.name} membayar uang damai Rp 20.000.000 ke oknum penyidik! Bebas dari OTT KPK dan tiba di DPR Senayan.`, 'CASH', updatedPayer.id);
+            addLog(`${updatedPayer.name} membayar uang damai Rp 65.000.000 ke oknum penyidik! Bebas dari Lapas Sukamiskin, hak politik -30, & lolos ke DPR Senayan.`, 'CASH', updatedPayer.id);
           }
         });
         return;
       } else {
-        // Cannot afford bribe even with properties -> send to jail instead of unfair elimination
+        // Cannot afford bribe even with properties -> full severe sentence executed
         handleRefuseKpkBribe();
         return;
       }
@@ -1879,32 +1900,47 @@ export default function App() {
     setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
       ...p,
       cash: p.cash - bribeAmount,
+      politicalInfluence: Math.max(0, p.politicalInfluence - 30),
+      stress: Math.min(100, p.stress + 20),
       isInCorruptionRoute: false,
       position: 21, // Sent to DPR Senayan safely
-      kpkSuspicionLevel: 10,
-      stress: Math.max(0, p.stress - 10)
+      kpkSuspicionLevel: 30
     } : p));
 
-    addLog(`${activePlayer.name} membayar uang suap Rp 20.000.000 ke oknum penyidik! Bebas dari OTT KPK dan tiba di DPR Senayan.`, 'CASH', activePlayer.id);
+    addLog(`${activePlayer.name} membayar uang suap damai Rp 65.000.000 ke oknum penyidik! Bebas dari Lapas Sukamiskin, hak politik -30, dan tiba di DPR Senayan.`, 'CASH', activePlayer.id);
   };
 
-  // Refuse KPK Bribe Handler
+  // Refuse KPK Bribe Handler (FULL SEVERE PUNISHMENT)
   const handleRefuseKpkBribe = () => {
     setShowKpkBribe(false);
     if (!activePlayer || activePlayer.isBankrupt) return;
 
-    // Refused bribe: sent to Lapas Sukamiskin, 50% cash seized, 2 turns locked
+    soundManager.playSirenOTT();
+
+    // 1. Confiscate up to 2 most valuable properties
+    const playerProps = perimeterTiles.filter(t => t.ownerId === activePlayer.id)
+      .sort((a, b) => (b.price || 0) - (a.price || 0));
+    const seizedProps = playerProps.slice(0, 2);
+    const seizedIds = seizedProps.map(t => t.id);
+
+    if (seizedIds.length > 0) {
+      setPerimeterTiles(prev => prev.map(t => seizedIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
+    }
+
+    // 2. Seize 80% of cash, set 4 turns in jail, strip 50 political influence, set stress to 100%
     setPlayers(prev => prev.map(p => {
       if (p.id === activePlayer.id) {
         const updated = {
           ...p,
-          cash: Math.round(p.cash * 0.5),
-          stress: Math.min(100, p.stress + 50),
+          cash: Math.max(0, Math.round(p.cash * 0.20)), // 80% confiscated
+          ownedProperties: p.ownedProperties.filter(id => !seizedIds.includes(id)),
+          stress: 100, // Maximum stress
+          politicalInfluence: Math.max(0, p.politicalInfluence - 50), // Political ruin
           inJail: true,
-          jailTurnsLeft: 2,
+          jailTurnsLeft: 4, // 4 full turns locked
           isInCorruptionRoute: false,
           position: 14,
-          kpkSuspicionLevel: 10,
+          kpkSuspicionLevel: 40,
           stats: { ...p.stats, timesInJail: p.stats.timesInJail + 1 }
         };
         checkStressThreshold(updated);
@@ -1913,7 +1949,11 @@ export default function App() {
       return p;
     }));
 
-    addLog(`${activePlayer.name} menolak menyuap oknum KPK! Diseret ke Lapas Sukamiskin dan disita 50% kekayaan tunai.`, 'DANGER', activePlayer.id);
+    const seizedDesc = seizedProps.length > 0 
+      ? `Aset properti tanah disita negara: ${seizedProps.map(p => p.name).join(', ')}`
+      : 'Tidak ada sertifikat tanah yang dapat disita';
+
+    addLog(`VONIS TIPIKOR OTT KPK: ${activePlayer.name} dijatuhi vonis maksimal! HUKUMAN BERAT: Sita 80% uang kas tunai, ${seizedDesc}, vonis 4 putaran di Lapas Sukamiskin, pencabutan 50 poin hak politik, dan stres melonjak ke 100%!`, 'DANGER', activePlayer.id);
   };
 
   // Pay Jail Bribe
@@ -1950,7 +1990,7 @@ export default function App() {
         const updated = {
           ...p,
           cash: p.cash - property.launderPrice,
-          ownedProperties: [...p.ownedProperties, property.id],
+          ownedProperties: [...p.ownedProperties.filter(id => id !== property.id), property.id],
           kpkSuspicionLevel: Math.min(100, p.kpkSuspicionLevel + property.kpkRiskIncrease),
           stress: Math.max(0, p.stress - property.stressRelief),
           stats: {
@@ -1964,9 +2004,11 @@ export default function App() {
       return p;
     }));
 
+    // CRITICAL FIX: Ensure the purchased property updates on the board (petak #0 to #28)
+    setPerimeterTiles(prev => prev.map(t => t.id === property.id ? { ...t, ownerId: activePlayer.id, level: 1 } : t));
     setLuxuryTiles(prev => prev.map(t => t.id === property.id ? { ...t, ownerId: activePlayer.id, level: 1 } : t));
 
-    addLog(`💎 PENCUCIAN UANG BERHASIL! ${activePlayer.name} membeli "${property.name}" dengan potongan pajak spesial seharga ${formatRupiah(property.launderPrice)} (${property.taxSavingsText})! Radar KPK naik drastis +${property.kpkRiskIncrease}%.`, 'CASH', activePlayer.id);
+    addLog(`💎 PENCUCIAN UANG BERHASIL! ${activePlayer.name} memborong Petak #${property.tileNumber || property.id} "${property.name}" dengan potongan pajak 40% seharga ${formatRupiah(property.launderPrice)}! Aset resmi terdaftar di peta dan radar KPK naik +${property.kpkRiskIncrease}%.`, 'CASH', activePlayer.id);
 
     if (activePlayer.isAi) {
       if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
@@ -1991,7 +2033,7 @@ export default function App() {
         const updated = {
           ...p,
           cash: p.cash - discountedCost,
-          ownedProperties: [...p.ownedProperties, tile.id],
+          ownedProperties: [...p.ownedProperties.filter(id => id !== tile.id), tile.id],
           kpkSuspicionLevel: Math.min(100, p.kpkSuspicionLevel + kpkRisk)
         };
         return updated;
@@ -1999,9 +2041,11 @@ export default function App() {
       return p;
     }));
 
+    // CRITICAL FIX: Update perimeterTiles directly so tile displays ownership on petak #0 sampai #28
     setPerimeterTiles(prev => prev.map(t => t.id === tile.id ? { ...t, ownerId: activePlayer.id, level: 1 } : t));
+    setLuxuryTiles(prev => prev.map(t => t.id === tile.id ? { ...t, ownerId: activePlayer.id, level: 1 } : t));
 
-    addLog(`🏢 PENCUCIAN UANG ASET PUBLIK: ${activePlayer.name} memborong ${tile.certificateTitle || tile.name} dengan diskon pajak 40% seharga ${formatRupiah(discountedCost)}! Radar deteksi KPK bertambah +${kpkRisk}%.`, 'CASH', activePlayer.id);
+    addLog(`🏢 PENCUCIAN UANG ASET PETA: ${activePlayer.name} memborong Petak #${tile.id} ${tile.certificateTitle || tile.name} dengan diskon pajak 40% seharga ${formatRupiah(discountedCost)}! Radar deteksi KPK bertambah +${kpkRisk}%.`, 'CASH', activePlayer.id);
 
     if (activePlayer.isAi) {
       if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
@@ -3182,7 +3226,7 @@ export default function App() {
       {showKpkBribe && activePlayer && (
         <KPKBribeModal
           player={activePlayer}
-          bribeAmount={20_000_000}
+          bribeAmount={65_000_000}
           onPayBribe={handlePayKpkBribe}
           onRefuseBribe={handleRefuseKpkBribe}
         />

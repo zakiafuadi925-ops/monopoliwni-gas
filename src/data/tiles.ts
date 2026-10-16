@@ -490,8 +490,8 @@ export const CORRUPTION_ROUTE_TILES: BoardTile[] = [
     shortName: 'Cuci Uang Mewah',
     zone: 'KORUPSI_ROUTE',
     actionType: 'CORRUPTION_LAUNDER',
-    description: 'Cuci uang hasil korupsi dengan membeli aset properti mewah (Penthouse SCBD, Villa Bali, Ruko Samaran) berdiskon pajak 35%-45%, namun memicu lonjakan radar deteksi KPK!',
-    subtext: 'Diskon Pajak 40% (Risiko KPK +35%)',
+    description: 'Cuci uang hasil korupsi dengan memborong aset properti mewah di petak #0 sampai #28 (seperti #15 IKN Nusantara, #1 DKI Jakarta, #26 Tambang Timika) berdiskon pajak 40%, namun memicu lonjakan radar deteksi KPK!',
+    subtext: 'Beli Aset Peta Diskon 40%',
     isCorruptionRoute: true
   },
   {
@@ -500,8 +500,8 @@ export const CORRUPTION_ROUTE_TILES: BoardTile[] = [
     shortName: 'Sidak KPK / OTT',
     zone: 'KORUPSI_ROUTE',
     actionType: 'CORRUPTION_AUDIT',
-    description: 'Auditor BPK dan penyidik KPK melakukan penyadapan telepon! Lempar dadu: Jika angka 1-3 (atau 1-4 bila radar tinggi), TERTANGKAP OTT KPK dan harus memberi uang suap Rp 20 Jt atau dibui!',
-    subtext: 'Pertaruhan OTT KPK',
+    description: 'Penyidik KPK & auditor BPK melancarkan Operasi Tangkap Tangan (OTT)! Lempar dadu: jika angka 1-3 (atau 1-4 jika radar > 50%), TERTANGKAP OTT! HUKUMAN BERAT: Sita 80% kas tunai, penyitaan 2 aset tanah oleh KPK, vonis 4 putaran Lapas Sukamiskin, pencabutan 50 poin hak politik, dan stres 100%! Opsi damai hanya jika sanggup suap Rp 65 Jt!',
+    subtext: 'BAHAYA OTT: Sita 80% Kas & 4 Putaran Bui',
     isCorruptionRoute: true
   }
 ];

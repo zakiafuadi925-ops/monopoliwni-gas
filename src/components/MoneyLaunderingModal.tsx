@@ -16,7 +16,8 @@ import {
   MapPin, 
   Briefcase,
   HeartCrack,
-  Info
+  Info,
+  CheckCircle2
 } from 'lucide-react';
 import { KPKRadarGauge } from './VitalIndicators';
 
@@ -42,40 +43,73 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
   onSkipLaundering
 }) => {
   const [activeTab, setActiveTab] = useState<'LUXURY_ESTATES' | 'PERIMETER_PROPERTIES'>('LUXURY_ESTATES');
-  const [selectedLuxuryId, setSelectedLuxuryId] = useState<number | null>(LUXURY_LAUNDER_PROPERTIES[0].id);
+  const [selectedLuxuryId, setSelectedLuxuryId] = useState<number | null>(LUXURY_LAUNDER_PROPERTIES[0]?.id || 15);
   const [selectedPerimeterId, setSelectedPerimeterId] = useState<number | null>(null);
 
   const inflationFactor = 1 + (macro.inflationRate / 100);
 
-  // Available unowned perimeter properties
+  // Available unowned perimeter properties (#0 to #28)
   const unownedPerimeterTiles = perimeterTiles.filter(
     t => t.actionType === 'PROPERTY' && !t.ownerId
   );
 
   const selectedLuxury = LUXURY_LAUNDER_PROPERTIES.find(p => p.id === selectedLuxuryId) || null;
-  const luxuryTileOwner = (luxuryId: number) => {
-    const tile = luxuryTiles.find(t => t.id === luxuryId);
+  
+  // Find owner from perimeterTiles (petak #0 to #28)
+  const getTileOwner = (tileId: number) => {
+    const tile = perimeterTiles.find(t => t.id === tileId) || luxuryTiles.find(t => t.id === tileId);
     if (!tile?.ownerId) return null;
     return players.find(p => p.id === tile.ownerId) || null;
   };
 
   const selectedPerimeterTile = perimeterTiles.find(t => t.id === selectedPerimeterId) || null;
   const perimeterDiscountedCost = selectedPerimeterTile 
-    ? Math.round((selectedPerimeterTile.price || 0) * inflationFactor * 0.6) // 40% tax cut
+    ? Math.round((selectedPerimeterTile.price || 0) * inflationFactor * 0.6) // 40% tax discount
+    : 0;
+
+  // Selected luxury calculations with inflation
+  const luxuryNormalPrice = selectedLuxury 
+    ? Math.round(selectedLuxury.normalPrice * inflationFactor)
+    : 0;
+  const luxuryDiscountedPrice = selectedLuxury
+    ? Math.round(luxuryNormalPrice * (1 - selectedLuxury.taxDiscountPercent / 100))
     : 0;
 
   // AI Automatic Money Laundering Decision
   useEffect(() => {
     if (player.isAi) {
       const timer = setTimeout(() => {
-        // If AI has lots of corrupt cash and unowned luxury property exists
-        const unownedLuxury = LUXURY_LAUNDER_PROPERTIES.filter(p => !luxuryTileOwner(p.id));
-        const affordable = unownedLuxury.filter(p => player.cash >= p.launderPrice * 1.35);
+        // Look for unowned luxury properties on petak #0 to #28 first
+        const unownedLuxury = LUXURY_LAUNDER_PROPERTIES.filter(p => !getTileOwner(p.id));
+        const affordableLuxury = unownedLuxury.filter(p => {
+          const cost = Math.round(p.normalPrice * inflationFactor * 0.6);
+          return player.cash >= cost * 1.15;
+        });
 
-        if (affordable.length > 0) {
-          onLaunderBuyLuxury(affordable[0]);
+        if (affordableLuxury.length > 0) {
+          // Sort by highest value
+          affordableLuxury.sort((a, b) => b.normalPrice - a.normalPrice);
+          const chosen = affordableLuxury[0];
+          const dynamicLaunderProperty: LuxuryLaunderProperty = {
+            ...chosen,
+            normalPrice: Math.round(chosen.normalPrice * inflationFactor),
+            launderPrice: Math.round(chosen.normalPrice * inflationFactor * (1 - chosen.taxDiscountPercent / 100))
+          };
+          onLaunderBuyLuxury(dynamicLaunderProperty);
         } else {
-          onSkipLaundering();
+          // Check unowned perimeter tiles (#0 to #28)
+          const affordablePerimeter = unownedPerimeterTiles.filter(t => {
+            const cost = Math.round((t.price || 0) * inflationFactor * 0.6);
+            return player.cash >= cost * 1.15;
+          });
+          if (affordablePerimeter.length > 0) {
+            affordablePerimeter.sort((a, b) => (b.price || 0) - (a.price || 0));
+            const targetTile = affordablePerimeter[0];
+            const cost = Math.round((targetTile.price || 0) * inflationFactor * 0.6);
+            onLaunderBuyPerimeter(targetTile, cost, 30);
+          } else {
+            onSkipLaundering();
+          }
         }
       }, 1400);
 
@@ -94,13 +128,13 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
             </div>
             <div>
               <h3 className="font-black text-sm sm:text-base uppercase tracking-wider text-white flex items-center gap-2">
-                <span>PENCUCIAN UANG HASIL KORUPSI</span>
+                <span>PENCUCIAN UANG DI PETAK #0 SAMPAI #28</span>
                 <span className="px-2 py-0.2 rounded-full bg-slate-950/50 text-[10px] font-mono text-emerald-200 border border-emerald-400/40">
                   TAX HAVEN
                 </span>
               </h3>
               <span className="text-[11px] font-medium text-emerald-100 block">
-                Beli Properti Mewah Samaran · Potongan Pajak Hingga 45% · Risiko Radar KPK
+                Beli Properti Peta Resmi · Diskon Pajak 40% · Membangkitkan Radar KPK
               </span>
             </div>
           </div>
@@ -150,8 +184,9 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
           <div className="p-2.5 rounded-xl bg-amber-950/30 border border-amber-600/30 flex items-start gap-2 text-xs text-amber-200/90 leading-snug">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <strong className="text-amber-300 font-bold">Dilema Cuci Uang:</strong> Membeli aset properti mewah menyamarkan uang haram menjadi dividen sah berharga murah (-40% diskon pajak). Namun, 
-              <span className="text-rose-300 font-bold"> Radar KPK akan melonjak drastis</span> tepat sebelum Anda memasuki <strong>Petak #103 Sidak KPK</strong> di giliran berikutnya!
+              <strong className="text-amber-300 font-bold">Dilema Cuci Uang:</strong> Semua aset di bawah ini berada langsung di <strong>petak #0 sampai #28</strong> pada papan permainan. Anda membelinya dengan 
+              <span className="text-emerald-300 font-bold"> diskon pajak 40%</span> dan langsung menerima sewa ketika pemain lain mendarat di petak tersebut. Namun, 
+              <span className="text-rose-300 font-bold"> Radar KPK akan melonjak</span> tepat sebelum Anda memasuki <strong>Petak #103 Sidak KPK</strong>!
             </div>
           </div>
         </div>
@@ -167,7 +202,7 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Aset Mewah Samaran Khusus ({LUXURY_LAUNDER_PROPERTIES.length})</span>
+            <span>Aset Mewah Pilihan Petak #0 - #28 ({LUXURY_LAUNDER_PROPERTIES.length})</span>
           </button>
 
           <button
@@ -179,7 +214,7 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
             }`}
           >
             <Building2 className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sertifikat Kota Bebas Pajak ({unownedPerimeterTiles.length})</span>
+            <span>Semua Sertifikat Tanah Peta ({unownedPerimeterTiles.length} Tersedia)</span>
           </button>
         </div>
 
@@ -189,9 +224,11 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
             <div className="space-y-3">
               {LUXURY_LAUNDER_PROPERTIES.map(prop => {
                 const isSelected = selectedLuxuryId === prop.id;
-                const owner = luxuryTileOwner(prop.id);
+                const owner = getTileOwner(prop.id);
                 const isOwned = owner !== null;
-                const isAffordable = player.cash >= prop.launderPrice;
+                const adjustedNormalPrice = Math.round(prop.normalPrice * inflationFactor);
+                const adjustedLaunderPrice = Math.round(adjustedNormalPrice * (1 - prop.taxDiscountPercent / 100));
+                const isAffordable = player.cash >= adjustedLaunderPrice;
 
                 return (
                   <div
@@ -218,17 +255,20 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-black text-xs border border-emerald-500/40">
+                            Petak #{prop.tileNumber}
+                          </span>
                           <span className="text-xs sm:text-sm font-extrabold text-white truncate">
                             {prop.name}
                           </span>
-                          <span className="px-2 py-0.2 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          <span className="px-2 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                             Diskon {prop.taxDiscountPercent}%
                           </span>
                         </div>
 
                         <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-slate-500" />
-                          <span>{prop.location}</span>
+                          <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                          <span className="truncate">{prop.location}</span>
                         </span>
 
                         <p className="text-[11px] text-slate-300 mt-1 leading-snug line-clamp-2">
@@ -245,13 +285,13 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
                     <div className="sm:text-right shrink-0 flex flex-col justify-between gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
                       <div>
                         <span className="text-[10px] line-through text-slate-500 font-mono block">
-                          Normal: {formatRupiah(prop.normalPrice)}
+                          Normal: {formatRupiah(adjustedNormalPrice)}
                         </span>
                         <div className="text-sm sm:text-base font-black text-emerald-300 font-mono">
-                          {formatRupiah(prop.launderPrice)}
+                          {formatRupiah(adjustedLaunderPrice)}
                         </div>
                         <span className="text-[10px] font-mono text-emerald-400 block font-bold">
-                          +{formatRupiah(prop.baseRent)} / putaran
+                          +{formatRupiah(prop.baseRent)} sewa/kunjungan
                         </span>
                       </div>
 
@@ -272,7 +312,12 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
                         <span className="text-[10px] text-rose-400 font-mono">
                           Kas tunai tidak cukup
                         </span>
-                      ) : null}
+                      ) : (
+                        <span className="text-[10px] text-emerald-400 font-mono flex items-center sm:justify-end gap-1 font-bold">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          Siap Dibeli di Petak #{prop.tileNumber}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -283,7 +328,7 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
               {unownedPerimeterTiles.length === 0 ? (
                 <div className="p-6 text-center text-slate-400 bg-slate-950/50 rounded-xl border border-slate-800">
                   <p className="text-xs">
-                    Semua sertifikat tanah di perimeter telah dimiliki oleh pemain lain. Silakan pilih tab Aset Mewah Samaran!
+                    Semua sertifikat tanah di petak #0 sampai #28 telah dimiliki oleh pemain! Silakan pilih tab Aset Mewah Pilihan.
                   </p>
                 </div>
               ) : (
@@ -311,14 +356,17 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
                       >
                         <div>
                           <div className="flex items-center justify-between gap-1">
+                            <span className="px-1.5 py-0.2 rounded bg-slate-800 text-emerald-300 font-mono font-bold text-[10px] border border-emerald-500/30">
+                              Petak #{tile.id}
+                            </span>
                             <span className="text-xs font-bold text-white truncate">
                               {tile.name}
                             </span>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
                               -40% Pajak
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                          <span className="text-[10px] text-slate-400 block mt-1">
                             {tile.islandName || 'Kota'} · Sewa {formatRupiah(tile.rent || 0)}
                           </span>
                         </div>
@@ -333,7 +381,7 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
                             </span>
                           </div>
 
-                          <span className="text-[9px] text-rose-300 font-mono font-bold bg-rose-950/60 px-1 py-0.5 rounded border border-rose-800">
+                          <span className="text-[9px] text-rose-300 font-mono font-bold bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-800">
                             Radar +30%
                           </span>
                         </div>
@@ -361,22 +409,29 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
           {activeTab === 'LUXURY_ESTATES' ? (
             <button
               onClick={() => {
-                if (selectedLuxury && player.cash >= selectedLuxury.launderPrice) {
+                if (selectedLuxury && player.cash >= luxuryDiscountedPrice && getTileOwner(selectedLuxury.id) === null) {
                   soundManager.playCash();
-                  onLaunderBuyLuxury(selectedLuxury);
+                  const dynamicProperty: LuxuryLaunderProperty = {
+                    ...selectedLuxury,
+                    normalPrice: luxuryNormalPrice,
+                    launderPrice: luxuryDiscountedPrice
+                  };
+                  onLaunderBuyLuxury(dynamicProperty);
                 }
               }}
-              disabled={!selectedLuxury || player.cash < selectedLuxury.launderPrice || luxuryTileOwner(selectedLuxury.id) !== null}
+              disabled={!selectedLuxury || player.cash < luxuryDiscountedPrice || getTileOwner(selectedLuxury?.id || 0) !== null}
               className={`
                 min-h-[44px] py-2.5 px-5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg cursor-pointer
-                ${selectedLuxury && player.cash >= selectedLuxury.launderPrice && luxuryTileOwner(selectedLuxury.id) === null
+                ${selectedLuxury && player.cash >= luxuryDiscountedPrice && getTileOwner(selectedLuxury.id) === null
                   ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-900/50'
                   : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                 }
               `}
             >
               <Briefcase className="w-4 h-4" />
-              <span>Cuci Uang & Beli Aset Mewah ({selectedLuxury ? formatRupiahShort(selectedLuxury.launderPrice) : 'Pilih'})</span>
+              <span>
+                Cuci Uang ke Petak #{selectedLuxury ? selectedLuxury.tileNumber : 'Pilih'} ({selectedLuxury ? formatRupiahShort(luxuryDiscountedPrice) : 'Pilih'})
+              </span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           ) : (
@@ -397,7 +452,9 @@ export const MoneyLaunderingModal: React.FC<MoneyLaunderingModalProps> = ({
               `}
             >
               <Building2 className="w-4 h-4" />
-              <span>Cuci Uang ke Sertifikat ({selectedPerimeterTile ? formatRupiahShort(perimeterDiscountedCost) : 'Pilih'})</span>
+              <span>
+                Cuci Uang ke Petak #{selectedPerimeterTile ? selectedPerimeterTile.id : 'Pilih'} ({selectedPerimeterTile ? formatRupiahShort(perimeterDiscountedCost) : 'Pilih'})
+              </span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}
