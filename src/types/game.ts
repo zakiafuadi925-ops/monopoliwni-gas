@@ -190,6 +190,24 @@ export interface MacroHistoryPoint {
   note?: string;
 }
 
+export interface PlayerCorruptionHistoryPoint {
+  round: number;
+  label: string; // e.g. "P1", "P2", "P3", ...
+  fullPeriod: string;
+  timestamp?: string;
+  playersData: {
+    playerId: string;
+    playerName: string;
+    playerColor: string;
+    playerAvatar: string;
+    kpkSuspicionLevel: number; // 0 - 100 (%)
+    totalCorruptionGains: number; // in IDR
+    cash?: number;
+    isInCorruptionRoute?: boolean;
+    inJail?: boolean;
+  }[];
+}
+
 export interface DilemmaCard {
   id: string;
   title: string;

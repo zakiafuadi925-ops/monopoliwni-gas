@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Player, BoardTile, MacroEconomy, GameLogItem, MacroHistoryPoint } from '../types/game';
+import { Player, BoardTile, MacroEconomy, GameLogItem, MacroHistoryPoint, PlayerCorruptionHistoryPoint } from '../types/game';
 import { formatRupiah, formatRupiahShort, formatPercent } from '../utils/format';
 import { MacroHistoryChart } from './MacroHistoryChart';
 import { 
@@ -8,6 +8,7 @@ import {
   KPKRadarGauge,
   KPKRadarPingEffect
 } from './VitalIndicators';
+import { CorruptionD3AreaChart } from './CorruptionD3AreaChart';
 import { 
   BarChart3, 
   Wallet, 
@@ -21,7 +22,8 @@ import {
   Users,
   LineChart,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Radio
 } from 'lucide-react';
 
 interface PlayerStatsDrawerProps {
@@ -29,6 +31,7 @@ interface PlayerStatsDrawerProps {
   tiles: BoardTile[];
   macro: MacroEconomy;
   macroHistory?: MacroHistoryPoint[];
+  corruptionHistory?: PlayerCorruptionHistoryPoint[];
   currentRound?: number;
   logs: GameLogItem[];
   isOpen: boolean;
@@ -42,6 +45,7 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
   tiles,
   macro,
   macroHistory = [],
+  corruptionHistory = [],
   currentRound = 1,
   logs,
   isOpen,
@@ -50,7 +54,7 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
   onOpenFullHistory
 }) => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(activePlayerId);
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'MACRO' | 'PROPERTIES' | 'LOGS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'MACRO' | 'CORRUPTION' | 'PROPERTIES' | 'LOGS'>('OVERVIEW');
 
   if (!isOpen) return null;
 
@@ -96,10 +100,10 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-800 bg-slate-950/50 p-1 gap-1">
+        <div className="flex border-b border-slate-800 bg-slate-950/50 p-1 gap-1 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('OVERVIEW')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'OVERVIEW'
                 ? 'bg-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
@@ -110,21 +114,32 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('MACRO')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 relative cursor-pointer ${
+            className={`flex-1 py-2 px-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0 relative cursor-pointer ${
               activeTab === 'MACRO'
                 ? 'bg-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <LineChart className="w-3.5 h-3.5" />
-            <span>Tren Makro</span>
+            <span>Makro</span>
             {macro.trend === 'CRISIS' && (
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping absolute top-1.5 right-1.5" />
             )}
           </button>
           <button
+            onClick={() => setActiveTab('CORRUPTION')}
+            className={`flex-1 py-2 px-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0 relative cursor-pointer ${
+              activeTab === 'CORRUPTION'
+                ? 'bg-rose-600 text-white shadow-[0_0_10px_rgba(225,29,72,0.4)]'
+                : 'text-rose-400/90 hover:text-rose-300'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+            <span>KPK D3</span>
+          </button>
+          <button
             onClick={() => setActiveTab('PROPERTIES')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'PROPERTIES'
                 ? 'bg-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
@@ -135,14 +150,14 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('LOGS')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'LOGS'
                 ? 'bg-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <History className="w-3.5 h-3.5" />
-            <span>Riwayat</span>
+            <span>Log</span>
           </button>
         </div>
 
@@ -531,6 +546,32 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'CORRUPTION' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-800">
+                <div>
+                  <span className="text-xs uppercase font-extrabold text-rose-400 tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-rose-400" />
+                    <span>Visualisasi D3.js: Radar KPK & Cuan Korupsi</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Grafik Area Interaktif Dinamis Antar-Pemain
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30">
+                  Putaran #{currentRound}
+                </span>
+              </div>
+
+              <CorruptionD3AreaChart
+                players={players}
+                history={corruptionHistory}
+                currentRound={currentRound}
+                height={300}
+              />
             </div>
           )}
 

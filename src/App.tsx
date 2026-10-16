@@ -13,7 +13,8 @@ import {
   GameLogItem, 
   DilemmaCard,
   MacroHistoryPoint,
-  KonohaMacroBuff
+  KonohaMacroBuff,
+  PlayerCorruptionHistoryPoint
 } from './types/game';
 import { PERIMETER_TILES, CORRUPTION_ROUTE_TILES } from './data/tiles';
 import { DILEMMA_CARDS } from './data/cards';
@@ -55,9 +56,43 @@ const INITIAL_MACRO_HISTORY: MacroHistoryPoint[] = [
   }
 ];
 
+const createInitialCorruptionHistory = (playersList: Player[]): PlayerCorruptionHistoryPoint[] => [
+  {
+    round: 0,
+    label: 'P0',
+    fullPeriod: 'Pra-Game (Siklus Awal APBD)',
+    playersData: playersList.map(p => ({
+      playerId: p.id,
+      playerName: p.name,
+      playerColor: p.color,
+      playerAvatar: p.avatar,
+      kpkSuspicionLevel: 10,
+      totalCorruptionGains: 0,
+      cash: p.cash
+    }))
+  },
+  {
+    round: 1,
+    label: 'P1',
+    fullPeriod: 'Putaran 1 · Awal Tahun Anggaran 2026',
+    playersData: playersList.map(p => ({
+      playerId: p.id,
+      playerName: p.name,
+      playerColor: p.color,
+      playerAvatar: p.avatar,
+      kpkSuspicionLevel: p.kpkSuspicionLevel,
+      totalCorruptionGains: p.stats.totalCorruptionGains,
+      cash: p.cash,
+      isInCorruptionRoute: p.isInCorruptionRoute,
+      inJail: p.inJail
+    }))
+  }
+];
+
 // Components
 import { Board } from './components/Board';
 import { MacroIndicator } from './components/MacroIndicator';
+import { CorruptionD3AreaChart } from './components/CorruptionD3AreaChart';
 import { PlayerHUD } from './components/PlayerHUD';
 import { CardModal } from './components/CardModal';
 import { CorruptionGateModal, CorruptionAuditModal, KPKBribeModal } from './components/CorruptionModal';
@@ -211,8 +246,39 @@ export default function App() {
     activeKonohaBuffs: []
   });
   const [macroHistory, setMacroHistory] = useState<MacroHistoryPoint[]>(INITIAL_MACRO_HISTORY);
+  const [corruptionHistory, setCorruptionHistory] = useState<PlayerCorruptionHistoryPoint[]>(() => createInitialCorruptionHistory(createDefaultPlayers()));
   const [activeLaws, setActiveLaws] = useState<ActiveLaw[]>([]);
   const [cycleRound, setCycleRound] = useState<number>(1);
+
+  // Helper to record / update D3.js corruption history snapshot
+  const recordCorruptionSnapshot = (targetPlayers: Player[], roundNumber: number) => {
+    setCorruptionHistory(prev => {
+      const existingIndex = prev.findIndex(p => p.round === roundNumber);
+      const newPoint: PlayerCorruptionHistoryPoint = {
+        round: roundNumber,
+        label: `P${roundNumber}`,
+        fullPeriod: `Putaran ${roundNumber} · Siklus Anggaran Aktif`,
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        playersData: targetPlayers.map(p => ({
+          playerId: p.id,
+          playerName: p.name,
+          playerColor: p.color,
+          playerAvatar: p.avatar,
+          kpkSuspicionLevel: p.kpkSuspicionLevel,
+          totalCorruptionGains: p.stats.totalCorruptionGains,
+          cash: p.cash,
+          isInCorruptionRoute: p.isInCorruptionRoute,
+          inJail: p.inJail
+        }))
+      };
+      if (existingIndex >= 0) {
+        const copy = [...prev];
+        copy[existingIndex] = newPoint;
+        return copy;
+      }
+      return [...prev, newPoint];
+    });
+  };
 
   // Modals & Panels
   const [selectedTile, setSelectedTile] = useState<BoardTile | null>(null);
@@ -336,6 +402,7 @@ export default function App() {
       activeKonohaBuffs: []
     });
     setMacroHistory(INITIAL_MACRO_HISTORY);
+    setCorruptionHistory(createInitialCorruptionHistory(configuredPlayers));
     setActivePlayerIndex(0);
     setHasRolled(false);
     setIsRolling(false);
@@ -2460,6 +2527,27 @@ export default function App() {
       }
     ]);
 
+    setCorruptionHistory(prev => [
+      ...prev,
+      {
+        round: nextRound,
+        label: `P${nextRound}`,
+        fullPeriod: `Putaran ${nextRound} · ${MONTH_NAMES[nextMonth - 1]} (W${weekNumber})`,
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        playersData: players.map(p => ({
+          playerId: p.id,
+          playerName: p.name,
+          playerColor: p.color,
+          playerAvatar: p.avatar,
+          kpkSuspicionLevel: p.kpkSuspicionLevel,
+          totalCorruptionGains: p.stats.totalCorruptionGains,
+          cash: p.cash,
+          isInCorruptionRoute: p.isInCorruptionRoute,
+          inJail: p.inJail
+        }))
+      }
+    ]);
+
     // Check if Active Laws expire
     setActiveLaws(prev => prev.map(l => ({ ...l, durationTurns: l.durationTurns - 1 })).filter(l => l.durationTurns > 0));
 
@@ -2956,6 +3044,13 @@ export default function App() {
               />
             )}
 
+            {/* Panel Visualisasi D3.js pada Sidebar: Tren Suspicion KPK & Total Gains Korupsi */}
+            <CorruptionD3AreaChart
+              players={players}
+              history={corruptionHistory}
+              currentRound={cycleRound}
+            />
+
             {/* Quick Live Standings Card */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 shadow-lg">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2.5">
@@ -3282,6 +3377,7 @@ export default function App() {
         tiles={[...perimeterTiles, ...corruptionTiles, ...luxuryTiles]}
         macro={macro}
         macroHistory={macroHistory}
+        corruptionHistory={corruptionHistory}
         currentRound={cycleRound}
         logs={logs}
         isOpen={isStatsOpen}
