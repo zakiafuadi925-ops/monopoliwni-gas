@@ -4,7 +4,7 @@
 
 ## 🎮 Tentang Game
 
-Monopoli WNI adalah adaptasi digital klasik game monopoli yang dimodifikasi untuk mencerminkan realita ekonomi Indonesia. Mainkan dengan teman atau lawan AI, belikan properti, bayar sewa, dan jadi pemain terkaya.
+Monopoli WNI adalah adaptasi digital klasik game monopoli yang dimodifikasi untuk mencerminkan realita ekonomi Indonesia. Mainkan dengan teman atau lawan AI, belikan properti, bayar sewa, dan jadi pemain terkaya. Link Bisa diakses -> https://monopoliwni-gas.vercel.app/
 
 ### Fitur Utama
 
