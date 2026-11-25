@@ -1,10 +1,15 @@
-import React, { useEffect } from 'react';
-import { Player, BoardTile, MacroEconomy } from '../types/game';
+import React, { useEffect, useRef, useState } from 'react';
+import { Player, BoardTile, MacroEconomy, GameMode } from '../types/game';
 import { formatRupiah } from '../utils/format';
-import { Trophy, RotateCcw, Crown, HeartCrack, Award } from 'lucide-react';
+import { Trophy, RotateCcw, Crown, Globe } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundManager } from '../utils/sound';
 import { calculatePlayerNetWorth } from '../engine/economy';
+import {
+  CloudLeaderboardEntry,
+  fetchGlobalLeaderboard,
+  submitLeaderboardScore
+} from '../engine/cloudApi';
 
 interface GameOverModalProps {
   players: Player[];
@@ -13,6 +18,8 @@ interface GameOverModalProps {
   onRestart: () => void;
   onQuickRestart?: () => void;
   reason: string;
+  gameMode?: GameMode;
+  cycleRound?: number;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -21,8 +28,13 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   macro,
   onRestart,
   onQuickRestart,
-  reason
+  reason,
+  gameMode = 'SURVIVAL',
+  cycleRound = 1
 }) => {
+  const [globalEntries, setGlobalEntries] = useState<CloudLeaderboardEntry[]>([]);
+  const [leaderboardOnline, setLeaderboardOnline] = useState<boolean>(false);
+  const submittedRef = useRef<boolean>(false);
   const calculateNetWorth = (p: Player) => calculatePlayerNetWorth(p, tiles, macro);
 
   const sortedPlayers = [...players].sort((a, b) => {
@@ -45,6 +57,27 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
       // Ignore
     }
   }, []);
+
+  useEffect(() => {
+    if (submittedRef.current || !winner) return;
+    submittedRef.current = true;
+
+    const winnerNetWorth = calculatePlayerNetWorth(winner, tiles, macro);
+    void (async () => {
+      await submitLeaderboardScore({
+        winnerName: winner.name,
+        archetypeId: winner.archetypeId,
+        netWorth: winnerNetWorth,
+        cash: winner.cash,
+        cycleRound,
+        gameMode,
+        reason
+      });
+      const res = await fetchGlobalLeaderboard(gameMode, 5);
+      setLeaderboardOnline(res.online);
+      setGlobalEntries(res.entries);
+    })();
+  }, [winner, tiles, macro, cycleRound, gameMode, reason]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
@@ -118,6 +151,31 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Global MongoDB Leaderboard */}
+        {leaderboardOnline && globalEntries.length > 0 && (
+          <div className="space-y-1.5 text-left">
+            <span className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5" />
+              <span>Peringkat Global ({gameMode})</span>
+            </span>
+            <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+              {globalEntries.map((entry, idx) => (
+                <div
+                  key={entry.id}
+                  className="px-2.5 py-1.5 bg-slate-950/80 border border-slate-800 rounded-lg flex items-center justify-between text-[11px]"
+                >
+                  <span className="text-slate-200 font-semibold truncate">
+                    #{idx + 1} {entry.winnerName} · P{entry.cycleRound}
+                  </span>
+                  <span className="font-mono font-bold text-sky-300 shrink-0">
+                    {formatRupiah(entry.netWorth)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons: Main Babak Baru & Quick Restart */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">

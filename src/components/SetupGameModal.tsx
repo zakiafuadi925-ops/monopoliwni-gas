@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CHARACTER_ARCHETYPES } from '../data/characters';
-import { AiDifficulty, GameMode, Player, CharacterArchetype } from '../types/game';
-import { Users, Bot, User, Play, Sparkles, Check, RotateCcw, Zap } from 'lucide-react';
+import { AiDifficulty, GameMode, Player } from '../types/game';
+import { Users, Bot, User, Play, Sparkles, Check, RotateCcw, Zap, Cloud, Trash2, Globe } from 'lucide-react';
 import { soundManager } from '../utils/sound';
 import { SavedGameSnapshot } from '../engine/persistence';
+import {
+  checkBackendHealth,
+  CloudSaveRecord,
+  deleteCloudSave,
+  listCloudSaves
+} from '../engine/cloudApi';
 
 interface SetupGameModalProps {
   onStartGame: (players: Player[], gameMode: GameMode) => void;
@@ -11,6 +17,8 @@ interface SetupGameModalProps {
   onClose?: () => void;
   savedSnapshot?: SavedGameSnapshot | null;
   onResumeSavedGame?: () => void;
+  onResumeCloudGame?: (snapshot: SavedGameSnapshot, cloudId: string) => void;
+  onOpenOnlineLobby?: () => void;
 }
 
 interface PlayerConfig {
@@ -25,10 +33,39 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
   bannerImage,
   onClose,
   savedSnapshot,
-  onResumeSavedGame
+  onResumeSavedGame,
+  onResumeCloudGame,
+  onOpenOnlineLobby
 }) => {
   const [numPlayers, setNumPlayers] = useState<number>(3);
   const [gameMode, setGameMode] = useState<GameMode>('SURVIVAL');
+  const [cloudOnline, setCloudOnline] = useState<boolean>(false);
+  const [cloudMode, setCloudMode] = useState<'mongodb' | 'memory' | undefined>(undefined);
+  const [cloudSaves, setCloudSaves] = useState<CloudSaveRecord[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const health = await checkBackendHealth();
+      if (!active) return;
+      setCloudOnline(health.online);
+      setCloudMode(health.mode);
+      if (health.online) {
+        const saves = await listCloudSaves(4);
+        if (active) setCloudSaves(saves);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleDeleteCloudSave = async (id: string) => {
+    const ok = await deleteCloudSave(id);
+    if (ok) {
+      setCloudSaves(prev => prev.filter(item => item.id !== id));
+    }
+  };
 
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([
     { name: 'Pemain 1', isAi: false, archetypeId: 'bambang_umr', aiDifficulty: 'SANTAI' },
@@ -280,14 +317,79 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
             </button>
           )}
 
+          {/* Cloud Saves (MongoDB / Backend API) */}
+          {onResumeCloudGame && (
+            <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                  <Cloud className={`w-4 h-4 ${cloudOnline ? 'text-sky-400' : 'text-slate-500'}`} />
+                  <span>Simpanan Cloud ({cloudOnline ? (cloudMode === 'mongodb' ? 'MongoDB' : 'Server Memory') : 'Offline'})</span>
+                </span>
+                {cloudOnline && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 font-semibold">
+                    Terhubung
+                  </span>
+                )}
+              </div>
+
+              {cloudOnline && cloudSaves.length > 0 ? (
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {cloudSaves.map(save => (
+                    <div
+                      key={save.id}
+                      className="flex items-center justify-between gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs"
+                    >
+                      <button
+                        onClick={() => {
+                          soundManager.playVictory();
+                          onResumeCloudGame(save, save.id);
+                        }}
+                        className="flex-1 text-left hover:text-sky-300 transition-colors cursor-pointer truncate"
+                      >
+                        <span className="font-bold text-slate-100">{save.title}</span>
+                        <span className="text-[10px] text-slate-400 ml-2">
+                          P#{save.cycleRound} · {save.gameMode ?? 'SURVIVAL'}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => void handleDeleteCloudSave(save.id)}
+                        title="Hapus simpanan cloud"
+                        className="p-1 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400">
+                  {cloudOnline
+                    ? 'Belum ada sesi tersimpan di database. Gunakan tombol "Simpan Cloud" saat bermain.'
+                    : 'Server backend belum dijalankan (npm run server). Simpanan lokal tetap aktif otomatis.'}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Start Button */}
-          <button
-            onClick={handleLaunch}
-            className="w-full min-h-[48px] py-3.5 px-6 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm rounded-xl transition-all shadow-xl shadow-amber-950/40 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-          >
-            <Play className="w-5 h-5 fill-slate-950" />
-            <span>Mulai Pertarungan Monopoli WNI</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <button
+              onClick={handleLaunch}
+              className="flex-1 min-h-[48px] py-3.5 px-6 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm rounded-xl transition-all shadow-xl shadow-amber-950/40 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <Play className="w-5 h-5 fill-slate-950" />
+              <span>Mulai Pertarungan Lokal</span>
+            </button>
+            {onOpenOnlineLobby && (
+              <button
+                onClick={onOpenOnlineLobby}
+                className="min-h-[48px] py-3.5 px-5 bg-sky-600 hover:bg-sky-500 text-white font-black text-sm rounded-xl transition-all shadow-xl shadow-sky-950/40 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Globe className="w-5 h-5" />
+                <span>Main Online</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

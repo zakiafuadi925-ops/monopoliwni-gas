@@ -20,9 +20,9 @@ Demo live: https://monopoliwni-gas.vercel.app/
 - **Styling & Animasi:** Tailwind CSS v4 (`@tailwindcss/vite`), Framer Motion (`framer-motion` / `motion`), `canvas-confetti`, Lucide React
 - **Visualisasi Data:** D3 v7 & Recharts v3
 - **Audio:** Web Audio API custom synthesizer (`src/utils/sound.ts`, tanpa aset audio eksternal)
-- **Runtime / Package Manager:** Bun atau Node.js
-
-> Catatan: `package.json` saat ini juga mencantumkan dependensi `express`, `dotenv`, dan `@google/genai` yang disiapkan untuk ekspansi backend/AI di masa mendatang dan belum aktif di `src/`.
+- **Backend & Database (Opsional):** Node.js HTTP RESTful API (`server/index.ts`) dengan dukungan **MongoDB** (Cloud Save & Global Leaderboard), SSE Realtime Multiplayer, dan **Gemini API** untuk *Breaking News* dinamis.
+- **Testing:** Vitest (`npm test`)
+- **Runtime / Package Manager:** Node.js (v20+) atau Bun
 
 ## Struktur Project
 
@@ -74,13 +74,15 @@ Buka `http://localhost:3000` di browser.
 
 ## Script yang Tersedia
 
-| Script    | Perintah                          | Deskripsi                               |
-| --------- | --------------------------------- | --------------------------------------- |
-| `dev`     | `vite --port=3000 --host=0.0.0.0` | Menjalankan server pengembangan lokal   |
-| `build`   | `vite build`                      | Build produksi ke folder `dist/`        |
-| `preview` | `vite preview`                    | Pratinjau hasil build produksi lokal    |
-| `lint`    | `tsc --noEmit`                    | Pemeriksaan tipe TypeScript             |
-| `clean`   | `rm -rf dist server.js`           | Menghapus artefak build                 |
+| Script    | Perintah                          | Deskripsi                                       |
+| --------- | --------------------------------- | ----------------------------------------------- |
+| `dev`     | `vite --port=3000 --host=0.0.0.0` | Menjalankan server pengembangan frontend lokal  |
+| `server`  | `tsx server/index.ts`             | Menjalankan RESTful API, MongoDB, & Multiplayer |
+| `build`   | `vite build`                      | Build produksi ke folder `dist/`                |
+| `preview` | `vite preview`                    | Pratinjau hasil build produksi lokal            |
+| `lint`    | `tsc --noEmit`                    | Pemeriksaan tipe TypeScript                     |
+| `test`    | `vitest run`                      | Menjalankan seluruh unit & API integration test |
+| `clean`   | `rm -rf dist`                     | Menghapus artefak build                         |
 
 ## Deploy
 
@@ -91,6 +93,9 @@ Project ini merupakan aplikasi frontend statis Vite dan dapat langsung di-deploy
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — Peta arsitektur, alur giliran, dan struktur state
 - [ROADMAP.md](./ROADMAP.md) — Roadmap pengembangan fitur & refactoring
 - [AGENTS.md](./AGENTS.md) — Panduan & batasan teknis untuk AI coding agent
+- [CHANGELOG.md](./CHANGELOG.md) — Catatan perubahan proyek
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — Panduan kontribusi & standar kode
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — Panduan deploy frontend, MongoDB, & backend API
 
 ## Lisensi & Kontak
 

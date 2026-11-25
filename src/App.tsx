@@ -132,6 +132,14 @@ import { TradeModal } from './components/TradeModal';
 import { TradeOffer, applyTradeOffer } from './engine/trade';
 import { applySeasonalEvent, SeasonalEvent } from './engine/seasonalEvents';
 import { buildNarratorContext, fetchDynamicBreakingNews } from './engine/narrator';
+import { saveGameToCloud } from './engine/cloudApi';
+import { MultiplayerLobbyModal } from './components/MultiplayerLobbyModal';
+import {
+  getOrCreateClientId,
+  leaveOnlineRoom,
+  subscribeToOnlineRoom,
+  syncOnlineRoomState
+} from './engine/multiplayer';
 import { GameOverModal } from './components/GameOverModal';
 import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
@@ -154,6 +162,8 @@ import {
   Zap,
   HelpCircle, 
   ArrowLeftRight,
+  Cloud,
+  Globe,
   Scale, 
   AlertTriangle,
   Landmark,
@@ -281,6 +291,13 @@ function GameContent() {
   } = useGame();
 
   const [savedSnapshot, setSavedSnapshot] = useState<SavedGameSnapshot | null>(() => loadGameSnapshot());
+  const [cloudSaveId, setCloudSaveId] = useState<string | null>(null);
+  const [cloudSaveStatus, setCloudSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [clientId] = useState<string>(() => getOrCreateClientId());
+  const [showOnlineLobby, setShowOnlineLobby] = useState<boolean>(false);
+  const [onlineRoomCode, setOnlineRoomCode] = useState<string | null>(null);
+  const lastRemoteVersionRef = useRef<number>(0);
+  const isApplyingRemoteSyncRef = useRef<boolean>(false);
   const [showQuickGuide, setShowQuickGuide] = useState<boolean>(false);
   const [showTradeModal, setShowTradeModal] = useState<boolean>(false);
   const [gameSpeed, setGameSpeed] = useState<1 | 2 | 4>(1);
@@ -486,6 +503,149 @@ function GameContent() {
     soundManager.playVictory();
   };
 
+  // Resume saved game from Cloud / MongoDB
+  const handleResumeCloudGame = (snapshot: SavedGameSnapshot, id: string) => {
+    setCloudSaveId(id);
+    setOnlineRoomCode(null);
+    dispatch({ type: 'RESUME_GAME', snapshot });
+    setHasRolled(false);
+    setIsRolling(false);
+    setIsMoving(false);
+    setLastRoll(null);
+    soundManager.playVictory();
+  };
+
+  // Masuk ke permainan Multiplayer Online dari Lobby
+  const handleEnterOnlineGame = (payload: {
+    roomCode: string;
+    stateVersion: number;
+    snapshot: SavedGameSnapshot;
+  }) => {
+    lastRemoteVersionRef.current = payload.stateVersion;
+    isApplyingRemoteSyncRef.current = true;
+    setOnlineRoomCode(payload.roomCode);
+    setShowOnlineLobby(false);
+    dispatch({ type: 'RESUME_GAME', snapshot: payload.snapshot });
+    setHasRolled(false);
+    setIsRolling(false);
+    setIsMoving(false);
+    setLastRoll(null);
+  };
+
+  const handleLeaveOnlineRoom = async () => {
+    if (onlineRoomCode) {
+      await leaveOnlineRoom(onlineRoomCode, clientId);
+      setOnlineRoomCode(null);
+    }
+  };
+
+  // Subscribe event realtime dari room multiplayer online
+  useEffect(() => {
+    if (!onlineRoomCode) return;
+    return subscribeToOnlineRoom(onlineRoomCode, {
+      onStateSync: payload => {
+        if (payload.senderClientId === clientId) return;
+        if (payload.stateVersion <= lastRemoteVersionRef.current) return;
+        lastRemoteVersionRef.current = payload.stateVersion;
+        isApplyingRemoteSyncRef.current = true;
+        dispatch({ type: 'RESUME_GAME', snapshot: payload.gameState });
+      }
+    });
+  }, [onlineRoomCode, clientId, dispatch]);
+
+  // Sinkronkan state permainan ke room multiplayer online (debounced)
+  useEffect(() => {
+    if (!onlineRoomCode || isSetupOpen || isRolling || isMoving) return;
+    if (isApplyingRemoteSyncRef.current) {
+      isApplyingRemoteSyncRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void syncOnlineRoomState(onlineRoomCode, clientId, {
+        version: 1,
+        savedAt: new Date().toISOString(),
+        gameMode,
+        players,
+        activePlayerIndex,
+        perimeterTiles,
+        corruptionTiles,
+        luxuryTiles,
+        macro,
+        macroHistory,
+        corruptionHistory,
+        activeLaws,
+        cycleRound,
+        logs
+      }).then(version => {
+        if (typeof version === 'number' && version > lastRemoteVersionRef.current) {
+          lastRemoteVersionRef.current = version;
+        }
+      });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [
+    onlineRoomCode,
+    clientId,
+    isSetupOpen,
+    isRolling,
+    isMoving,
+    gameMode,
+    players,
+    activePlayerIndex,
+    perimeterTiles,
+    corruptionTiles,
+    luxuryTiles,
+    macro,
+    macroHistory,
+    corruptionHistory,
+    activeLaws,
+    cycleRound,
+    logs
+  ]);
+
+  // Save current game snapshot manually to Cloud / MongoDB
+  const handleSaveToCloud = async () => {
+    if (cloudSaveStatus === 'saving') return;
+    setCloudSaveStatus('saving');
+    const activeNames = players
+      .filter(p => !p.isBankrupt)
+      .slice(0, 2)
+      .map(p => p.name.split(' ')[0])
+      .join(' vs ');
+    const title = `${activeNames || 'Sesi'} (Putaran #${cycleRound})`;
+    const saved = await saveGameToCloud(
+      {
+        gameMode,
+        players,
+        activePlayerIndex,
+        perimeterTiles,
+        corruptionTiles,
+        luxuryTiles,
+        macro,
+        macroHistory,
+        corruptionHistory,
+        activeLaws,
+        cycleRound,
+        logs
+      },
+      title,
+      cloudSaveId
+    );
+
+    if (saved) {
+      setCloudSaveId(saved.id);
+      setCloudSaveStatus('saved');
+      addLog(`☁️ Sesi berhasil disimpan ke Cloud Database (${saved.title}).`, 'SYSTEM');
+      setTimeout(() => setCloudSaveStatus('idle'), 2500);
+    } else {
+      setCloudSaveStatus('error');
+      addLog('⚠️ Gagal menyimpan ke Cloud (pastikan `npm run server` aktif). Simpanan lokal tetap aman.', 'SYSTEM');
+      setTimeout(() => setCloudSaveStatus('idle'), 2500);
+    }
+  };
+
   // Eksekusi negosiasi barter properti antar pemain
   const handleExecuteTrade = (offer: TradeOffer) => {
     const { players: nextPlayers, perimeterTiles: nextTiles } = applyTradeOffer(offer, players, perimeterTiles);
@@ -502,6 +662,9 @@ function GameContent() {
   const handleStartGame = (configuredPlayers: Player[], selectedMode: GameMode = gameMode) => {
     clearGameSnapshot();
     setSavedSnapshot(null);
+    setCloudSaveId(null);
+    setCloudSaveStatus('idle');
+    setOnlineRoomCode(null);
     dispatch({ type: 'INIT_GAME', players: configuredPlayers, gameMode: selectedMode });
     setHasRolled(false);
     setIsRolling(false);
@@ -2889,6 +3052,16 @@ function GameContent() {
               Cepat P{Math.min(cycleRound, FAST_MODE_MAX_ROUNDS)}/{FAST_MODE_MAX_ROUNDS}
             </span>
           )}
+          {onlineRoomCode && (
+            <button
+              onClick={() => void handleLeaveOnlineRoom()}
+              title="Sedang terhubung di Room Online (klik untuk keluar)"
+              className="min-h-[40px] py-2 px-2.5 text-[11px] font-mono font-bold bg-sky-500/15 border border-sky-500/50 text-sky-300 hover:bg-rose-950/60 hover:border-rose-500/60 hover:text-rose-200 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Room {onlineRoomCode}</span>
+            </button>
+          )}
           <button
             onClick={() => setShowQuickGuide(true)}
             title="Panduan Singkat Bermain Monopoli WNI"
@@ -2905,6 +3078,31 @@ function GameContent() {
             >
               <ArrowLeftRight className="w-4 h-4 text-emerald-400" />
               <span className="hidden xl:inline">Barter</span>
+            </button>
+          )}
+          {!isSetupOpen && !isGameOver && (
+            <button
+              onClick={() => void handleSaveToCloud()}
+              disabled={cloudSaveStatus === 'saving'}
+              title="Simpan progres permainan ke Cloud Database (MongoDB)"
+              className={`min-h-[40px] py-2 px-2.5 text-xs font-bold rounded-xl border transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+                cloudSaveStatus === 'saved'
+                  ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300'
+                  : cloudSaveStatus === 'error'
+                  ? 'bg-rose-950/70 border-rose-500/60 text-rose-300'
+                  : 'text-slate-300 hover:text-sky-300 bg-slate-900 hover:bg-slate-800 border-slate-800'
+              }`}
+            >
+              <Cloud className="w-4 h-4 text-sky-400" />
+              <span className="hidden xl:inline">
+                {cloudSaveStatus === 'saving'
+                  ? 'Menyimpan...'
+                  : cloudSaveStatus === 'saved'
+                  ? 'Tersimpan'
+                  : cloudSaveStatus === 'error'
+                  ? 'Offline'
+                  : 'Simpan Cloud'}
+              </span>
             </button>
           )}
           <button
@@ -3064,6 +3262,19 @@ function GameContent() {
             >
               ✕
             </button>
+          </div>
+        )}
+
+        {/* Online Turn Waiting Banner */}
+        {onlineRoomCode && activePlayer && activePlayer.id !== clientId && !isGameOver && (
+          <div className="bg-sky-950/85 border border-sky-500/60 rounded-xl px-4 py-2.5 text-xs text-sky-100 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 font-semibold">
+              <Globe className="w-4 h-4 text-sky-400 animate-pulse shrink-0" />
+              <span>
+                Mode Online (Room <strong className="font-mono">{onlineRoomCode}</strong>): Menunggu giliran{' '}
+                <strong className="text-amber-300">{activePlayer.name}</strong>...
+              </span>
+            </span>
           </div>
         )}
 
@@ -3347,8 +3558,17 @@ function GameContent() {
           onClose={players.length > 0 && !isGameOver ? () => setIsSetupOpen(false) : undefined}
           savedSnapshot={savedSnapshot}
           onResumeSavedGame={handleResumeSavedGame}
+          onResumeCloudGame={handleResumeCloudGame}
+          onOpenOnlineLobby={() => setShowOnlineLobby(true)}
         />
       )}
+
+      <MultiplayerLobbyModal
+        isOpen={showOnlineLobby}
+        clientId={clientId}
+        onClose={() => setShowOnlineLobby(false)}
+        onEnterOnlineGame={handleEnterOnlineGame}
+      />
 
       <QuickGuideModal
         isOpen={showQuickGuide}
@@ -3507,6 +3727,8 @@ function GameContent() {
           onRestart={handleRestartNewRound}
           onQuickRestart={handleQuickRestart}
           reason={gameOverReason}
+          gameMode={gameMode}
+          cycleRound={cycleRound}
         />
       )}
 

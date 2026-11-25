@@ -54,7 +54,7 @@ Tujuan: Memperdalam strategi permainan dan kenyamanan bermain di berbagai perang
 
 Tujuan: Membuka mode bermain jarak jauh dan konten dinamis berbasis AI.
 
-- [ ] **Multiplayer Online Realtime**
-  - Sistem Lobby & Room Code menggunakan Supabase Realtime atau server WebSocket (`express` + `ws` / Socket.IO) dengan validasi giliran di server.
+- [x] **Multiplayer Online Realtime**
+  - Sistem Lobby & Room Code (`/api/rooms`, SSE realtime broadcast di `server/rooms.ts`, `MultiplayerLobbyModal`, dan sinkronisasi state lintas klien di `App.tsx`).
 - [x] **Narator & Berita Dinamis Berbasis AI (`@google/genai`)**
   - Backend proxy endpoint (`server/index.ts`, script `npm run server`) untuk menghasilkan *Breaking News* kontekstual via Gemini API tanpa mengekspos API key di klien, dengan fallback otomatis ke template statis.
