@@ -265,6 +265,12 @@ export async function handleApiRequest(
   // 5. Multiplayer Online Rooms (/api/rooms)
   const roomManager = options.roomManager ?? defaultRoomManager;
 
+  if (method === 'GET' && pathname === '/api/rooms') {
+    const rooms = roomManager.listOpenRooms();
+    sendJson(res, 200, { data: rooms, count: rooms.length });
+    return;
+  }
+
   if (method === 'POST' && pathname === '/api/rooms') {
     try {
       const body = await parseJsonBody(req);

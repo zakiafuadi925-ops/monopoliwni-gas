@@ -80,6 +80,12 @@ export class RoomManager {
     return this.rooms.get(code.trim().toUpperCase()) ?? null;
   }
 
+  listOpenRooms(): MultiplayerRoom[] {
+    return Array.from(this.rooms.values())
+      .filter(room => room.status === 'LOBBY' && room.participants.length < 4)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
   joinRoom(
     rawCode: string,
     participant: { clientId: string; name: string; archetypeId: string }

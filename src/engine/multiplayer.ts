@@ -82,6 +82,20 @@ export function buildOnlinePlayers(participants: OnlineParticipant[]): Player[] 
   });
 }
 
+export async function listOnlineRooms(): Promise<{ rooms: OnlineRoom[]; online: boolean }> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/rooms`, { method: 'GET' });
+    if (!res.ok) return { rooms: [], online: false };
+    const body = (await res.json()) as { data?: OnlineRoom[] };
+    return {
+      rooms: Array.isArray(body.data) ? body.data : [],
+      online: true
+    };
+  } catch {
+    return { rooms: [], online: false };
+  }
+}
+
 export async function createOnlineRoom(input: {
   hostClientId: string;
   hostName: string;

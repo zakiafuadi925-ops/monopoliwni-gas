@@ -164,6 +164,12 @@ describe('RESTful API routes', () => {
     const code = created.data.code;
     expect(created.data.participants).toHaveLength(1);
 
+    const openRoomsRes = await fetch(`${srv.baseUrl}/api/rooms`);
+    const openRoomsBody = (await openRoomsRes.json()) as { count: number; data: Array<{ code: string }> };
+    expect(openRoomsRes.status).toBe(200);
+    expect(openRoomsBody.count).toBe(1);
+    expect(openRoomsBody.data[0].code).toBe(code);
+
     const joinRes = await fetch(`${srv.baseUrl}/api/rooms/${code}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

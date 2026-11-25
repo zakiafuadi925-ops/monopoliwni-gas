@@ -3052,7 +3052,7 @@ function GameContent() {
               Cepat P{Math.min(cycleRound, FAST_MODE_MAX_ROUNDS)}/{FAST_MODE_MAX_ROUNDS}
             </span>
           )}
-          {onlineRoomCode && (
+          {onlineRoomCode ? (
             <button
               onClick={() => void handleLeaveOnlineRoom()}
               title="Sedang terhubung di Room Online (klik untuk keluar)"
@@ -3060,6 +3060,15 @@ function GameContent() {
             >
               <Globe className="w-3.5 h-3.5" />
               <span>Room {onlineRoomCode}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowOnlineLobby(true)}
+              title="Buat atau Gabung Lobby Multiplayer Online"
+              className="min-h-[40px] py-2 px-2.5 text-xs font-bold text-slate-300 hover:text-sky-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Globe className="w-4 h-4 text-sky-400" />
+              <span className="hidden xl:inline">Lobby Online</span>
             </button>
           )}
           <button
