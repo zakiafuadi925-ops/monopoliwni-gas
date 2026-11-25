@@ -131,6 +131,7 @@ import { QuickGuideModal } from './components/QuickGuideModal';
 import { TradeModal } from './components/TradeModal';
 import { TradeOffer, applyTradeOffer } from './engine/trade';
 import { applySeasonalEvent, SeasonalEvent } from './engine/seasonalEvents';
+import { buildNarratorContext, fetchDynamicBreakingNews } from './engine/narrator';
 import { GameOverModal } from './components/GameOverModal';
 import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
@@ -2594,40 +2595,41 @@ function GameContent() {
     // Check if Active Laws expire
     setActiveLaws(prev => prev.map(l => ({ ...l, durationTurns: l.durationTurns - 1 })).filter(l => l.durationTurns > 0));
 
-    // Occasional Breaking News (25% chance per full round cycle)
+    // Occasional Breaking News (25% chance per full round cycle, AI Dinamis + fallback template)
     if (Math.random() > 0.75) {
-      const randomNews = BREAKING_NEWS_TEMPLATES[Math.floor(Math.random() * BREAKING_NEWS_TEMPLATES.length)];
-      soundManager.playSirenOTT();
-      setCurrentNews(randomNews);
-      addLog(`SIARAN PERS: ${randomNews.headline}`, 'DANGER');
+      const narratorCtx = buildNarratorContext(effectiveMacro, effectivePlayers, activeLaws, nextRound);
+      void fetchDynamicBreakingNews(narratorCtx, BREAKING_NEWS_TEMPLATES).then(({ news, source }) => {
+        soundManager.playSirenOTT();
+        setCurrentNews(news);
+        addLog(`${source === 'AI' ? '🤖 SIARAN PERS AI' : 'SIARAN PERS'}: ${news.headline}`, 'DANGER');
 
-      // Apply News Impact
-      if (randomNews.impactType === 'INFLATION') {
-        const bumped = Number((newInflation + 2.0).toFixed(1));
-        const bumpedTrend = bumped > 10.0 ? 'CRISIS' : 'VOLATILE';
-        setMacro(m => ({ ...m, inflationRate: bumped, trend: bumpedTrend }));
-        setMacroHistory(prev => [
-          ...prev,
-          {
-            round: nextRound,
-            label: `P${nextRound}*`,
-            fullPeriod: `Putaran ${nextRound} (Berita Inflasi)`,
-            inflationRate: bumped,
-            usdIdrRate: newUsd + 150,
-            biRate: newBi,
-            trend: bumpedTrend,
-            note: 'Dampak Breaking News Moneter'
-          }
-        ]);
-      } else if (randomNews.impactType === 'CORRUPTION_CRACKDOWN') {
-        setPlayers(plist => plist.map(p => ({ ...p, kpkSuspicionLevel: Math.min(100, p.kpkSuspicionLevel + 20) })));
-      } else if (randomNews.impactType === 'SUBSIDY_CUT') {
-        setPlayers(plist => plist.map(p => {
-          const updated = { ...p, stress: Math.min(100, p.stress + 15) };
-          checkStressThreshold(updated);
-          return updated;
-        }));
-      }
+        if (news.impactType === 'INFLATION') {
+          const bumped = Number((effectiveMacro.inflationRate + 2.0).toFixed(1));
+          const bumpedTrend = bumped > 10.0 ? 'CRISIS' : 'VOLATILE';
+          setMacro(m => ({ ...m, inflationRate: bumped, trend: bumpedTrend }));
+          setMacroHistory(prev => [
+            ...prev,
+            {
+              round: nextRound,
+              label: `P${nextRound}*`,
+              fullPeriod: `Putaran ${nextRound} (Berita Inflasi)`,
+              inflationRate: bumped,
+              usdIdrRate: newUsd + 150,
+              biRate: newBi,
+              trend: bumpedTrend,
+              note: 'Dampak Breaking News Moneter'
+            }
+          ]);
+        } else if (news.impactType === 'CORRUPTION_CRACKDOWN') {
+          setPlayers(plist => plist.map(p => ({ ...p, kpkSuspicionLevel: Math.min(100, p.kpkSuspicionLevel + 20) })));
+        } else if (news.impactType === 'SUBSIDY_CUT') {
+          setPlayers(plist => plist.map(p => {
+            const updated = { ...p, stress: Math.min(100, p.stress + 15) };
+            checkStressThreshold(updated);
+            return updated;
+          }));
+        }
+      });
     }
 
     addLog(`Siklus Putaran #${nextRound} dimulai (Minggu ${weekNumber}/4).`, 'SYSTEM');

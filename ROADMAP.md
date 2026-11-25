@@ -56,5 +56,5 @@ Tujuan: Membuka mode bermain jarak jauh dan konten dinamis berbasis AI.
 
 - [ ] **Multiplayer Online Realtime**
   - Sistem Lobby & Room Code menggunakan Supabase Realtime atau server WebSocket (`express` + `ws` / Socket.IO) dengan validasi giliran di server.
-- [ ] **Narator & Berita Dinamis Berbasis AI (`@google/genai`)**
-  - Backend proxy endpoint untuk menghasilkan *Breaking News* dan komentar satir kontekstual sesuai kondisi papan dan pemain tanpa mengekspos API key di klien.
+- [x] **Narator & Berita Dinamis Berbasis AI (`@google/genai`)**
+  - Backend proxy endpoint (`server/index.ts`, script `npm run server`) untuk menghasilkan *Breaking News* kontekstual via Gemini API tanpa mengekspos API key di klien, dengan fallback otomatis ke template statis.
