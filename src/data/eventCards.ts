@@ -156,6 +156,52 @@ export const MUSIBAH_EVENT_CARDS: EventOutcomeCard[] = [
     cashChange: -2_500_000,
     stressChange: 8,
     icon: '⚡'
+  },
+  {
+    id: 'musibah_blokir_rekening_ppatk',
+    eventType: 'MUSIBAH',
+    tier: 'BERAT',
+    diceRange: [1, 2],
+    diceRangeText: 'Dadu 1 - 2 (Paling Berat)',
+    title: 'Pemblokiran Rekening Dormant & Audit PPATK',
+    headline: 'SALDO DIBEKUKAN SEMENTARA OLEH OTORITAS!',
+    categoryBadge: 'AUDIT & PENGAWASAN KEUANGAN',
+    description: 'Transaksi mencurigakan terdeteksi sistem PPATK! Anda wajib menyewa konsultan kepatuhan dan membayar biaya pembukaan blokir darurat agar aset tidak disita.',
+    confiscatesLandDeed: true,
+    cashChange: -24_000_000,
+    stressChange: 28,
+    kpkChange: 18,
+    icon: '🔒'
+  },
+  {
+    id: 'musibah_tarif_tol_naik',
+    eventType: 'MUSIBAH',
+    tier: 'SEDANG',
+    diceRange: [3, 4],
+    diceRangeText: 'Dadu 3 - 4 (Musibah Sedang)',
+    title: 'Penyesuaian Tarif Tol & Pungutan Retribusi Ganda',
+    headline: 'BIAYA LOGISTIK & DISTRIBUSI MELONJAK!',
+    categoryBadge: 'LOGISTIK & BIROKRASI',
+    description: 'Tarif tol serentak naik berbarengan dengan retribusi izin usaha daerah. Margin usaha tergerus dan biaya operasional membengkak.',
+    confiscatesLandDeed: false,
+    cashChange: -9_000_000,
+    stressChange: 12,
+    icon: '🛣️'
+  },
+  {
+    id: 'musibah_kebocoran_data_pinjol',
+    eventType: 'MUSIBAH',
+    tier: 'RINGAN',
+    diceRange: [5, 6],
+    diceRangeText: 'Dadu 5 - 6 (Musibah Ringan)',
+    title: 'KTP Dipakai Daftar Pinjol Fiktif Oknum',
+    headline: 'TEROR DEBT COLLECTOR SALAH SASARAN!',
+    categoryBadge: 'KEAMANAN DATA PRIBADI',
+    description: 'Data KTP Anda dicatut oknum untuk pinjaman online ilegal. Butuh biaya urus surat keterangan kepolisian dan blokir SLIK OJK.',
+    confiscatesLandDeed: false,
+    cashChange: -3_500_000,
+    stressChange: 12,
+    icon: '📱'
   }
 ];
 
@@ -417,5 +463,36 @@ export const TAKDIR_EVENT_CARDS: EventOutcomeCard[] = [
     cashChange: 3_000_000,
     stressChange: -5,
     icon: '🛍️'
+  },
+  {
+    id: 'takdir_dana_csr_bumn',
+    eventType: 'TAKDIR',
+    tier: 'SEDANG',
+    diceRange: [3, 4],
+    diceRangeText: 'Dadu 3 - 4 (Takdir Sedang)',
+    title: 'Penyaluran Dana CSR BUMN Mitra Binaan',
+    headline: 'PROPOSAL KEMITRAAN BUMN DISETUJUI PENUH!',
+    categoryBadge: 'KEMITRAAN STRATEGIS',
+    description: 'Proposal pengembangan usaha Anda lolos kurasi program CSR BUMN. Dana bergulir berbunga super rendah langsung masuk ke kas operasional.',
+    confiscatesLandDeed: false,
+    cashChange: 17_000_000,
+    stressChange: -12,
+    politicalChange: 10,
+    icon: '🤝'
+  },
+  {
+    id: 'takdir_viral_umkm_fyp',
+    eventType: 'TAKDIR',
+    tier: 'RINGAN',
+    diceRange: [5, 6],
+    diceRangeText: 'Dadu 5 - 6 (Takdir Ringan)',
+    title: 'Produk Usaha Viral FYP & Borong Live Streaming',
+    headline: 'OMZET HARIAN NAIK 500% DALAM SEMALAM!',
+    categoryBadge: 'EKONOMI DIGITAL',
+    description: 'Konten review jujur pelanggan membuat produk Anda viral di media sosial. Stok gudang ludes terjual dan arus kas langsung segar.',
+    confiscatesLandDeed: false,
+    cashChange: 7_500_000,
+    stressChange: -10,
+    icon: '🔥'
   }
 ];

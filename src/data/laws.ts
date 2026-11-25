@@ -112,5 +112,26 @@ export const BREAKING_NEWS_TEMPLATES = [
     detail: 'Layanan publik lumpuh total. Kantor Kelurahan dan Dukcapil macet parah.',
     impactType: 'TAX' as const,
     impactSummary: 'Birokrasi kacau · Biaya pengurusan dokumen naik 2x lipat.'
+  },
+  {
+    id: 'rupiah_tembus_16800',
+    headline: 'BREAKING NEWS: Kurs Rupiah Melemah Tembus Rp 16.800/USD!',
+    detail: 'Harga barang impor dan bahan baku industri melonjak serentak di pasar domestik.',
+    impactType: 'INFLATION' as const,
+    impactSummary: 'Inflasi +2.0% · Biaya sewa dan kebutuhan pokok meningkat.'
+  },
+  {
+    id: 'tapera_wajib',
+    headline: 'BREAKING NEWS: Wacana Potongan Iuran Wajib Baru Gaji Pekerja!',
+    detail: 'Serikat pekerja menggelar aksi protes nasional menolak pemotongan gaji tambahan.',
+    impactType: 'SUBSIDY_CUT' as const,
+    impactSummary: 'Stres seluruh pemain +15% akibat tekanan biaya hidup.'
+  },
+  {
+    id: 'operasi_satgas_aset',
+    headline: 'BREAKING NEWS: Satgas LHKPN & KPK Sisir Rekening Pejabat Daerah!',
+    detail: 'Pelaporan kekayaan tidak wajar langsung ditandai sistem pemantau transaksi.',
+    impactType: 'CORRUPTION_CRACKDOWN' as const,
+    impactSummary: 'Pengawasan aset diperketat · Radar KPK seluruh pemain +20%!'
   }
 ];

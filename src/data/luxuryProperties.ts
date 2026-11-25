@@ -149,6 +149,48 @@ export const LUXURY_LAUNDER_PROPERTIES: LuxuryLaunderProperty[] = [
     description: 'Resor privat tepi karang laut eksotis dengan helipad pribadi dan dermaga yacht. Menghasilkan sewa dolar tinggi dari turis jetset mancanegara.',
     launderingMethod: 'Meminjam KTP nominee warga lokal dan menyamarkan transaksi lewat yayasan ekowisata.',
     taxSavingsText: 'Hemat Pajak Rp 32.000.000 (Diskon 40%)'
+  },
+  {
+    id: 12,
+    tileNumber: 12,
+    name: 'Surat Tanah Kota Balikpapan (Kilang Minyak Semayang)',
+    shortName: 'Balikpapan (Kilang)',
+    category: 'FRONT_BUSINESS',
+    location: 'Zona Industri Migas Semayang, Balikpapan, Kalimantan Timur',
+    cityName: 'Balikpapan',
+    certificateTitle: 'Surat Tanah SHM Kawasan Migas Balikpapan',
+    normalPrice: 105_000_000,
+    taxDiscountPercent: 40,
+    launderPrice: 63_000_000,
+    baseRent: 23_000_000,
+    upgradeCost: 52_000_000,
+    kpkRiskIncrease: 28,
+    stressRelief: 12,
+    icon: '🛢️',
+    description: 'Lahan strategis penyangga energi nasional dan akses logistik kapal tanker dekat IKN. Arus kas kontraktor migas sangat deras.',
+    launderingMethod: 'Subkontrak sewa kapal tongkang fiktif dan mark-up pengadaan suku cadang kilang.',
+    taxSavingsText: 'Hemat Pajak Rp 42.000.000 (Diskon 40%)'
+  },
+  {
+    id: 22,
+    tileNumber: 22,
+    name: 'Surat Tanah Kota Kendari (Kawasan Smelter Nikel)',
+    shortName: 'Kendari (Nikel)',
+    category: 'FRONT_BUSINESS',
+    location: 'Kawasan Industri Hilirisasi Nikel, Sulawesi Tenggara',
+    cityName: 'Kendari',
+    certificateTitle: 'Surat Tanah SHM Kawasan Smelter Kendari',
+    normalPrice: 100_000_000,
+    taxDiscountPercent: 40,
+    launderPrice: 60_000_000,
+    baseRent: 22_000_000,
+    upgradeCost: 50_000_000,
+    kpkRiskIncrease: 28,
+    stressRelief: 12,
+    icon: '🔋',
+    description: 'Kavling industri hilirisasi nikel baterai kendaraan listrik yang sedang naik daun. Nilai sewa melonjak seiring ekspor komoditas.',
+    launderingMethod: 'Invoice jasa konsultasi IUP pertambangan dan royalti konsesi jalur belakang.',
+    taxSavingsText: 'Hemat Pajak Rp 40.000.000 (Diskon 40%)'
   }
 ];
 

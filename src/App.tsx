@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Player, 
   BoardTile, 
-  MacroEconomy, 
   ActiveLaw, 
   BreakingNewsEvent, 
   GameLogItem, 
@@ -50,7 +49,7 @@ import {
 } from './engine/politics';
 import { GameProvider, useGame } from './context/GameContext';
 
-const INITIAL_MACRO_HISTORY: MacroHistoryPoint[] = [
+const _INITIAL_MACRO_HISTORY: MacroHistoryPoint[] = [
   {
     round: 0,
     label: "Q3 '25",
@@ -83,7 +82,7 @@ const INITIAL_MACRO_HISTORY: MacroHistoryPoint[] = [
   }
 ];
 
-const createInitialCorruptionHistory = (playersList: Player[]): PlayerCorruptionHistoryPoint[] => [
+const _createInitialCorruptionHistory = (playersList: Player[]): PlayerCorruptionHistoryPoint[] => [
   {
     round: 0,
     label: 'P0',
@@ -131,6 +130,7 @@ import { SetupGameModal } from './components/SetupGameModal';
 import { QuickGuideModal } from './components/QuickGuideModal';
 import { TradeModal } from './components/TradeModal';
 import { TradeOffer, applyTradeOffer } from './engine/trade';
+import { applySeasonalEvent, SeasonalEvent } from './engine/seasonalEvents';
 import { GameOverModal } from './components/GameOverModal';
 import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
@@ -174,7 +174,7 @@ const MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
-const createDefaultPlayers = (): Player[] => [
+const _createDefaultPlayers = (): Player[] => [
   {
     id: 'player_1',
     name: 'Pemain 1',
@@ -299,7 +299,7 @@ function GameContent() {
   } | null>(null);
 
   // Helper to record / update D3.js corruption history snapshot
-  const recordCorruptionSnapshot = (targetPlayers: Player[], roundNumber: number) => {
+  const _recordCorruptionSnapshot = (targetPlayers: Player[], roundNumber: number) => {
     setCorruptionHistory(prev => {
       const existingIndex = prev.findIndex(p => p.round === roundNumber);
       const newPoint: PlayerCorruptionHistoryPoint = {
@@ -390,6 +390,7 @@ function GameContent() {
     monthIndex: number;
     year: number;
     round: number;
+    seasonalEvent?: SeasonalEvent;
   } | null>(null);
 
   // Logs - Full scrollable history
@@ -2529,18 +2530,31 @@ function GameContent() {
       trend: newTrend
     } = nextMacro;
 
+    let effectiveMacro = nextMacro;
+    let effectivePlayers = players;
+
     if (isNewMonth) {
+      const seasonal = applySeasonalEvent(nextMonth, players, nextMacro);
+      if (seasonal.event) {
+        effectivePlayers = seasonal.nextPlayers;
+        effectiveMacro = seasonal.nextMacro;
+        setPlayers(() => effectivePlayers);
+        if (seasonal.logMessage) {
+          addLog(seasonal.logMessage, 'SYSTEM');
+        }
+      }
       setMonthNotice({
         monthName: MONTH_NAMES[nextMonth - 1],
         monthIndex: nextMonth,
         year: nextYear,
-        round: nextRound
+        round: nextRound,
+        seasonalEvent: seasonal.event ?? undefined
       });
       soundManager.playCash();
-      addLog(`🗓️ PERGANTIAN BULAN: Memasuki Bulan ${MONTH_NAMES[nextMonth - 1]} ${nextYear} (Putaran #${nextRound})! Laporan inflasi: ${newInflation}%, BI-Rate: ${newBi}%.`, 'SYSTEM');
+      addLog(`🗓️ PERGANTIAN BULAN: Memasuki Bulan ${MONTH_NAMES[nextMonth - 1]} ${nextYear} (Putaran #${nextRound})! Laporan inflasi: ${effectiveMacro.inflationRate}%, BI-Rate: ${effectiveMacro.biRate}%.`, 'SYSTEM');
     }
 
-    setMacro(nextMacro);
+    setMacro(effectiveMacro);
 
     setMacroHistory(prev => [
       ...prev,
@@ -2619,7 +2633,7 @@ function GameContent() {
     addLog(`Siklus Putaran #${nextRound} dimulai (Minggu ${weekNumber}/4).`, 'SYSTEM');
 
     if (gameMode === 'FAST' && nextRound > FAST_MODE_MAX_ROUNDS) {
-      const result = findNetWorthWinner(players, perimeterTiles, nextMacro);
+      const result = findNetWorthWinner(effectivePlayers, perimeterTiles, effectiveMacro);
       if (result) {
         setIsGameOver(true);
         setGameOverReason(
@@ -3030,6 +3044,16 @@ function GameContent() {
                 <p className="text-xs text-amber-200/90 mt-0.5">
                   Kondisi makroekonomi, tren inflasi, suku bunga BI, dan kurs Rupiah telah disesuaikan. Siapa yang mampu bertahan paling lama?
                 </p>
+                {monthNotice.seasonalEvent && (
+                  <div className="mt-2 p-2 rounded-lg bg-amber-900/60 border border-amber-400/50 text-xs">
+                    <div className="font-bold text-amber-200 flex items-center gap-1.5">
+                      <span>{monthNotice.seasonalEvent.icon}</span>
+                      <span>Event Nasional: {monthNotice.seasonalEvent.title}</span>
+                    </div>
+                    <p className="text-amber-100/90 mt-0.5">{monthNotice.seasonalEvent.description}</p>
+                    <p className="text-emerald-300 font-semibold mt-1">Dampak: {monthNotice.seasonalEvent.effectSummary}</p>
+                  </div>
+                )}
               </div>
             </div>
             <button

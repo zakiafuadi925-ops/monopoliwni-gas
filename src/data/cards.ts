@@ -237,5 +237,102 @@ export const DILEMMA_CARDS: DilemmaCard[] = [
         return { summary: 'Menolak gratifikasi lelang. Risiko KPK turun -15% dan stres reda.' };
       }
     }
+  },
+  {
+    id: 'tapera_potong_gaji',
+    title: 'Iuran Wajib Tabungan Perumahan Rakyat (Tapera)',
+    category: 'KEBIJAKAN',
+    description: 'Peraturan baru mewajibkan potongan tambahan dari penghasilan dan kas usaha untuk iuran perumahan yang baru bisa dicairkan puluhan tahun lagi.',
+    optionA: {
+      text: 'Patuh & Bayar Iuran Wajib Sekarang',
+      description: 'Kurangi beban administratif dengan langsung menyetor iuran wajib.',
+      effectText: '-Rp 12.000.000 Tunai · +15% Stres',
+      apply: (player: Player, state: GameContext) => {
+        player.cash = Math.max(0, player.cash - 12_000_000);
+        player.stress = Math.min(100, player.stress + 15);
+        state.addLog(`${player.name} menyetor potongan iuran Tapera Rp 12 Jt sambil menghela napas panjang.`, 'CASH', player.id);
+        return { summary: 'Membayar iuran wajib Rp 12 Jt, stres bertambah 15%.' };
+      }
+    },
+    optionB: {
+      text: 'Gabung Aliansi Gugatan Uji Materi ke MK',
+      description: 'Galang dukungan publik dan serikat pekerja untuk menunda potongan iuran.',
+      effectText: '+15 Pengaruh Politik · 50% Gratis / 50% Biaya Pengacara Rp 6 Jt',
+      apply: (player: Player, state: GameContext) => {
+        player.politicalInfluence = Math.min(100, player.politicalInfluence + 15);
+        if (Math.random() > 0.5) {
+          player.stress = Math.max(0, player.stress - 5);
+          state.addLog(`${player.name} menang gugatan penundaan iuran di MK! +15 Pengaruh Politik.`, 'POLITIC', player.id);
+          return { summary: 'Gugatan dikabulkan! Bebas iuran dan +15 Pengaruh Politik.' };
+        }
+        player.cash = Math.max(0, player.cash - 6_000_000);
+        player.stress = Math.min(100, player.stress + 10);
+        state.addLog(`${player.name} ikut uji materi namun tetap kena biaya administrasi Rp 6 Jt.`, 'INFO', player.id);
+        return { summary: 'Uji materi butuh biaya hukum Rp 6 Jt, namun meraih +15 Pengaruh Politik.' };
+      }
+    }
+  },
+  {
+    id: 'reklamasi_pesisir',
+    title: 'Tawaran Konsesi Izin Reklamasi & HGB Pesisir',
+    category: 'NEPOTISME',
+    description: 'Konsorsium properti elite menawarkan bagian saham proyek reklamasi pesisir dengan izin HGB jalur cepat.',
+    optionA: {
+      text: 'Masuk Konsorsium Reklamasi',
+      description: 'Terima komisi awal jumbo, namun sorotan aktivis lingkungan dan Radar KPK melonjak tajam!',
+      effectText: '+Rp 85.000.000 Tunai · +30% Radar KPK · +15% Stres',
+      apply: (player: Player, state: GameContext) => {
+        player.cash += 85_000_000;
+        player.kpkSuspicionLevel = Math.min(100, player.kpkSuspicionLevel + 30);
+        player.stress = Math.min(100, player.stress + 15);
+        state.addLog(`${player.name} ikut konsorsium reklamasi pesisir! Mengantongi Rp 85 Jt, namun Radar KPK +30%.`, 'DANGER', player.id);
+        return { summary: 'Menerima komisi reklamasi Rp 85 Jt! Radar KPK melonjak +30%.' };
+      }
+    },
+    optionB: {
+      text: 'Tolak & Dukung Hak Nelayan Lokal',
+      description: 'Berpihak pada masyarakat pesisir dan menjaga kelestarian laut.',
+      effectText: '+18 Pengaruh Politik · -10% Stres',
+      apply: (player: Player, state: GameContext) => {
+        player.politicalInfluence = Math.min(100, player.politicalInfluence + 18);
+        player.stress = Math.max(0, player.stress - 10);
+        state.addLog(`${player.name} menolak izin reklamasi dan membela nelayan lokal! +18 Pengaruh Politik.`, 'POLITIC', player.id);
+        return { summary: 'Membela nelayan lokal! +18 Pengaruh Politik dan stres turun -10%.' };
+      }
+    }
+  },
+  {
+    id: 'startup_unicorn_bubble',
+    title: 'Pitch Deck Startup AI "Karya Anak Bangsa"',
+    category: 'VIRAL',
+    description: 'Founder lulusan luar negeri menawarkan slot investasi angel investor untuk aplikasi super-app baru yang masih "bakar uang".',
+    optionA: {
+      text: 'Tanam Modal Rp 20.000.000 (High Risk)',
+      description: 'Jika valuasi naik bisa untung 3x lipat, jika bubar jalan dana hangus.',
+      effectText: '50% Untung +Rp 60 Jt / 50% Rugi -Rp 20 Jt',
+      apply: (player: Player, state: GameContext) => {
+        if (Math.random() > 0.48) {
+          player.cash += 40_000_000;
+          player.stress = Math.max(0, player.stress - 10);
+          state.addLog(`CUAN! Startup pilihan ${player.name} diakuisisi investor global! Laba bersih +Rp 40 Jt.`, 'CASH', player.id);
+          return { summary: 'Investasi startup sukses besar! Laba bersih +Rp 40.000.000.' };
+        }
+        player.cash = Math.max(0, player.cash - 20_000_000);
+        player.stress = Math.min(100, player.stress + 20);
+        state.addLog(`BONCOS! Startup gagal bayar gaji dan tutup lapak. ${player.name} rugi Rp 20 Jt.`, 'DANGER', player.id);
+        return { summary: 'Startup gulung tikar! Kerugian modal -Rp 20.000.000 & stres +20%.' };
+      }
+    },
+    optionB: {
+      text: 'Main Aman di Obligasi Negara Ritel (SBN)',
+      description: 'Tolak valuasi gorengan dan pilih kupon negara yang pasti cair.',
+      effectText: '+Rp 6.000.000 Kupon Aman · -5% Stres',
+      apply: (player: Player, state: GameContext) => {
+        player.cash += 6_000_000;
+        player.stress = Math.max(0, player.stress - 5);
+        state.addLog(`${player.name} memilih SBN Ritel ketimbang startup bakar uang. Dapat kupon aman Rp 6 Jt.`, 'CASH', player.id);
+        return { summary: 'Investasi SBN Ritel cair aman +Rp 6.000.000.' };
+      }
+    }
   }
 ];
