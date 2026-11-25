@@ -99,6 +99,6 @@ Project ini merupakan aplikasi frontend statis Vite dan dapat langsung di-deploy
 
 ## Lisensi & Kontak
 
-- **Lisensi:** Proprietary — digunakan untuk tujuan edukasi, eksplorasi, dan demonstrasi.
+- **Lisensi:** [MIT License](./LICENSE)
 - **GitHub:** [@zakiafuadi925-ops](https://github.com/zakiafuadi925-ops)
 - **Repositori:** [monopoliwni-gas](https://github.com/zakiafuadi925-ops/monopoliwni-gas)
