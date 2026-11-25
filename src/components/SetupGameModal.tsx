@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { CHARACTER_ARCHETYPES } from '../data/characters';
 import { Player, CharacterArchetype } from '../types/game';
-import { Users, Bot, User, Play, Sparkles, Check } from 'lucide-react';
+import { Users, Bot, User, Play, Sparkles, Check, RotateCcw } from 'lucide-react';
 import { soundManager } from '../utils/sound';
+import { SavedGameSnapshot } from '../engine/persistence';
 
 interface SetupGameModalProps {
   onStartGame: (players: Player[]) => void;
   bannerImage: string;
   onClose?: () => void;
+  savedSnapshot?: SavedGameSnapshot | null;
+  onResumeSavedGame?: () => void;
 }
 
 interface PlayerConfig {
@@ -19,7 +22,9 @@ interface PlayerConfig {
 export const SetupGameModal: React.FC<SetupGameModalProps> = ({
   onStartGame,
   bannerImage,
-  onClose
+  onClose,
+  savedSnapshot,
+  onResumeSavedGame
 }) => {
   const [numPlayers, setNumPlayers] = useState<number>(3);
 
@@ -217,6 +222,25 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
               })}
             </div>
           </div>
+
+          {/* Resume Saved Game */}
+          {savedSnapshot && onResumeSavedGame && (
+            <button
+              onClick={() => {
+                soundManager.playVictory();
+                onResumeSavedGame();
+              }}
+              className="w-full min-h-[48px] py-3 px-4 bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/60 text-emerald-200 font-bold text-xs sm:text-sm rounded-xl transition-all flex items-center justify-between gap-3 cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Lanjutkan Sesi Terakhir (Putaran #{savedSnapshot.cycleRound})</span>
+              </span>
+              <span className="text-[11px] font-normal text-emerald-300/80 shrink-0">
+                {savedSnapshot.players.filter(p => !p.isBankrupt).length} Pemain Aktif
+              </span>
+            </button>
+          )}
 
           {/* Start Button */}
           <button

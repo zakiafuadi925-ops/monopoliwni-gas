@@ -8,14 +8,14 @@ Roadmap ini disusun bertahap dari pembenahan teknis cepat (*quick wins*), refact
 
 Tujuan: Memastikan repositori bersih, konsisten, dan memiliki jaring pengaman dasar sebelum perubahan besar.
 
-- [ ] **Verifikasi Environment & Build**
+- [x] **Verifikasi Environment & Build**
   - Jalankan `bun install` / `npm install` dan pastikan `npm run lint` (`tsc --noEmit`) serta `npm run build` lolos tanpa error.
-- [ ] **Bersihkan Dead Code & Dependensi**
+- [x] **Bersihkan Dead Code & Dependensi**
   - Hapus komponen yang sudah tidak dipakai (`src/components/MusibahModal.tsx`, `src/components/TakdirModal.tsx`).
   - Evaluasi dependensi yang belum digunakan (`express`, `dotenv`, `@google/genai`) serta variabel di `.env.example` agar tidak membingungkan kontributor baru.
 - [ ] **Setup Linting & Unit Test**
-  - Tambahkan ESLint untuk menjaga konsistensi kode React/TypeScript.
-  - Tambahkan Vitest untuk menguji logika inti (rumus sewa + inflasi, pajak progresif, ambang stres/KPK, dan logika kebangkrutan).
+  - [ ] Tambahkan ESLint untuk menjaga konsistensi kode React/TypeScript.
+  - [x] Tambahkan Vitest untuk menguji logika inti (rumus sewa + inflasi, pajak progresif, ambang stres/KPK, dan logika kebangkrutan).
 
 ---
 
@@ -23,12 +23,13 @@ Tujuan: Memastikan repositori bersih, konsisten, dan memiliki jaring pengaman da
 
 Tujuan: Memecah monolit `src/App.tsx` (3.460 baris) agar mudah dirawat, diuji, dan dikembangkan.
 
-- [ ] **Ekstrak Pure Game Engine (`src/engine/`)**
-  - Pisahkan logika kalkulasi sewa, makroekonomi, resolusi kartu, efek RUU parlemen, dan keputusan bot AI dari komponen UI ke fungsi murni yang mudah di-unit test.
+- [x] **Ekstrak Pure Game Engine (`src/engine/`)**
+  - [x] Pisahkan logika kalkulasi sewa, likuidasi aset, dan makroekonomi ke `src/engine/economy.ts`.
+  - [ ] Pisahkan resolusi kartu, efek RUU parlemen, dan keputusan bot AI dari komponen UI.
 - [ ] **Sentralisasi State Management**
   - Pindahkan state permainan dari `src/App.tsx` ke `useReducer` + React Context atau Zustand store.
-- [ ] **Auto-Save & Resume Game (`localStorage`)**
-  - Simpan snapshot permainan setiap akhir giliran ke `localStorage` sehingga pemain dapat melanjutkan sesi setelah refresh atau menutup tab.
+- [x] **Auto-Save & Resume Game (`localStorage`)**
+  - Simpan snapshot permainan ke `localStorage` (`src/engine/persistence.ts`) dan sediakan opsi *Lanjutkan Sesi Terakhir* di `SetupGameModal`.
 
 ---
 

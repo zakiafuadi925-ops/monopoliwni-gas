@@ -2,6 +2,8 @@ import React from 'react';
 import { Player, BoardTile, MacroEconomy } from '../types/game';
 import { formatRupiah } from '../utils/format';
 import { soundManager } from '../utils/sound';
+import { calculatePropertySellValue } from '../engine/economy';
+export { calculatePropertySellValue };
 import { 
   AlertTriangle, 
   Building2, 
@@ -44,17 +46,6 @@ export interface RentCrisisModalProps {
   onPayRent: () => void;
   onDeclareBankruptcy: () => void;
   onUseSpecialCard?: (cardId: string) => void;
-}
-
-export function calculatePropertySellValue(tile: BoardTile, macro: MacroEconomy): number {
-  const inflationFactor = 1 + (macro.inflationRate / 100);
-  const basePrice = (tile.price || 0) * inflationFactor;
-  const upgradePrice = tile.level && tile.level > 1 
-    ? (tile.level - 1) * (tile.upgradeCost || 0) * inflationFactor 
-    : 0;
-  const totalValue = basePrice + upgradePrice;
-  // 80% liquidation emergency recovery value
-  return Math.max(100_000, Math.round(totalValue * 0.8));
 }
 
 export const RentCrisisModal: React.FC<RentCrisisModalProps> = ({

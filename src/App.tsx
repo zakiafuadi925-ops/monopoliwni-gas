@@ -22,6 +22,18 @@ import { CHARACTER_ARCHETYPES } from './data/characters';
 import { BREAKING_NEWS_TEMPLATES, LAW_PROPOSALS, LawProposal } from './data/laws';
 import { formatRupiah, formatRupiahShort } from './utils/format';
 import { soundManager } from './utils/sound';
+import {
+  advanceMacroCycle,
+  calculatePropertyRent,
+  calculatePropertySellValue,
+  liquidatePropertiesForDebt
+} from './engine/economy';
+import {
+  clearGameSnapshot,
+  loadGameSnapshot,
+  saveGameSnapshot,
+  SavedGameSnapshot
+} from './engine/persistence';
 
 const INITIAL_MACRO_HISTORY: MacroHistoryPoint[] = [
   {
@@ -106,7 +118,7 @@ import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
 import { GameLogsModal } from './components/GameLogsModal';
 import { KPKRadarPingEffect } from './components/VitalIndicators';
-import { RentCrisisModal, calculatePropertySellValue } from './components/RentCrisisModal';
+import { RentCrisisModal } from './components/RentCrisisModal';
 import { ManualRentPaymentModal, RentTransferData } from './components/ManualRentPaymentModal';
 import { MoneyLaunderingModal } from './components/MoneyLaunderingModal';
 import { MUSIBAH_EVENT_CARDS, TAKDIR_EVENT_CARDS } from './data/eventCards';
@@ -213,6 +225,7 @@ const createDefaultPlayers = (): Player[] => [
 export default function App() {
   // Game Setup & Status
   const [isSetupOpen, setIsSetupOpen] = useState<boolean>(true);
+  const [savedSnapshot, setSavedSnapshot] = useState<SavedGameSnapshot | null>(() => loadGameSnapshot());
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const [gameOverReason, setGameOverReason] = useState<string>('');
 
@@ -383,8 +396,75 @@ export default function App() {
     };
   }, []);
 
+  // Auto-save active game state to localStorage
+  useEffect(() => {
+    if (isSetupOpen) return;
+    if (isGameOver) {
+      clearGameSnapshot();
+      setSavedSnapshot(null);
+      return;
+    }
+    if (isRolling || isMoving) return;
+
+    saveGameSnapshot({
+      players,
+      activePlayerIndex,
+      perimeterTiles,
+      corruptionTiles,
+      luxuryTiles,
+      macro,
+      macroHistory,
+      corruptionHistory,
+      activeLaws,
+      cycleRound,
+      logs
+    });
+  }, [
+    isSetupOpen,
+    isGameOver,
+    isRolling,
+    isMoving,
+    players,
+    activePlayerIndex,
+    perimeterTiles,
+    corruptionTiles,
+    luxuryTiles,
+    macro,
+    macroHistory,
+    corruptionHistory,
+    activeLaws,
+    cycleRound,
+    logs
+  ]);
+
+  // Resume saved game from localStorage
+  const handleResumeSavedGame = () => {
+    if (!savedSnapshot) return;
+    setPlayers(savedSnapshot.players);
+    setActivePlayerIndex(savedSnapshot.activePlayerIndex);
+    setPerimeterTiles(savedSnapshot.perimeterTiles);
+    setCorruptionTiles(savedSnapshot.corruptionTiles);
+    setLuxuryTiles(savedSnapshot.luxuryTiles);
+    setMacro(savedSnapshot.macro);
+    setMacroHistory(savedSnapshot.macroHistory);
+    setCorruptionHistory(savedSnapshot.corruptionHistory);
+    setActiveLaws(savedSnapshot.activeLaws);
+    setCycleRound(savedSnapshot.cycleRound);
+    setLogs(savedSnapshot.logs);
+    setHasRolled(false);
+    setIsRolling(false);
+    setIsMoving(false);
+    setLastRoll(null);
+    setIsGameOver(false);
+    setGameOverReason('');
+    setIsSetupOpen(false);
+    soundManager.playVictory();
+  };
+
   // Initialize game from Setup Modal (Survival Mode)
   const handleStartGame = (configuredPlayers: Player[]) => {
+    clearGameSnapshot();
+    setSavedSnapshot(null);
     // Reset properties and tiles to clean unowned initial state
     setPerimeterTiles(PERIMETER_TILES.map(t => ({ ...t, ownerId: null, level: 1 })));
     setCorruptionTiles(CORRUPTION_ROUTE_TILES.map(t => ({ ...t })));
@@ -596,27 +676,23 @@ export default function App() {
         const totalLiquidation = ownedTiles.reduce((sum, t) => sum + calculatePropertySellValue(t, macro), 0);
         if (ownedTiles.length > 0 && player.cash + totalLiquidation >= psychologistFee) {
           if (player.isAi) {
-            let currentCash = player.cash;
-            const soldPropertyIds: number[] = [];
-            const soldPropertyTitles: string[] = [];
-            for (const prop of ownedTiles) {
-              if (currentCash >= psychologistFee) break;
-              const sellVal = calculatePropertySellValue(prop, macro);
-              currentCash += sellVal;
-              soldPropertyIds.push(prop.id);
-              soldPropertyTitles.push(prop.name);
-            }
+            const { finalCash, cashRaised, soldPropertyIds, soldPropertyTitles } = liquidatePropertiesForDebt(
+              ownedTiles,
+              player.cash,
+              psychologistFee,
+              macro
+            );
             setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
-            addLog(`${player.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) seharga ${formatRupiah(currentCash - player.cash)} untuk biaya terapi psikiater Rp 10.000.000!`, 'DANGER', player.id);
+            addLog(`${player.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) seharga ${formatRupiah(cashRaised)} untuk biaya terapi psikiater Rp 10.000.000!`, 'DANGER', player.id);
             const updatedStress = Math.max(0, player.stress - 20);
             setPlayers(prev => prev.map(p => p.id === player.id ? {
               ...p,
-              cash: currentCash - psychologistFee,
+              cash: finalCash - psychologistFee,
               stress: updatedStress,
               ownedProperties: p.ownedProperties.filter(id => !soldPropertyIds.includes(id))
             } : p));
             setPsychologistNotice({
-              player: { ...player, cash: currentCash - psychologistFee, stress: updatedStress },
+              player: { ...player, cash: finalCash - psychologistFee, stress: updatedStress },
               fee: psychologistFee,
               oldStress: player.stress,
               newStress: updatedStress
@@ -848,16 +924,7 @@ export default function App() {
           // Pay Rent to Owner
           const owner = players.find(p => p.id === tile.ownerId);
           if (owner && !owner.inJail && !owner.isBankrupt) {
-            const inflationFactor = 1 + (macro.inflationRate / 100);
-            const levelMultiplier = 1 + ((tile.level || 1) * 0.75);
-            
-            // Check if owner has UMKM Subsidy Law active
-            const hasUmkmSubsidy = activeLaws.some(l => l.effect === 'UMKM_SUBSIDY' && l.passedByPlayerId === owner.id);
-            const rentBonus = hasUmkmSubsidy ? 1.35 : 1;
-            const hasKonohaBoom = owner.konohaBuffs?.some(b => b.type === 'INFLATION_BOOM');
-            const konohaRentMultiplier = hasKonohaBoom ? 1.25 : 1;
-            const combinedRentMultiplier = rentBonus * konohaRentMultiplier;
-            const rentCost = Math.round((tile.rent || 0) * inflationFactor * levelMultiplier * combinedRentMultiplier);
+            const { rentCost, combinedRentMultiplier } = calculatePropertyRent(tile, owner, macro, activeLaws);
 
             soundManager.playBuzzer();
 
@@ -866,19 +933,14 @@ export default function App() {
               if (player.isAi) {
                 // AI automatic liquidation logic: sell properties until cash >= rentCost or exhausted
                 const aiProperties = perimeterTiles.filter(t => t.ownerId === player.id);
-                let currentAiCash = player.cash;
-                const soldPropertyIds: number[] = [];
-                const soldPropertyTitles: string[] = [];
+                const { survived, finalCash: currentAiCash, soldPropertyIds, soldPropertyTitles } = liquidatePropertiesForDebt(
+                  aiProperties,
+                  player.cash,
+                  rentCost,
+                  macro
+                );
 
-                for (const prop of aiProperties) {
-                  if (currentAiCash >= rentCost) break;
-                  const sellVal = calculatePropertySellValue(prop, macro);
-                  currentAiCash += sellVal;
-                  soldPropertyIds.push(prop.id);
-                  soldPropertyTitles.push(prop.name);
-                }
-
-                if (currentAiCash >= rentCost) {
+                if (survived) {
                   // AI survived by selling properties!
                   setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
                   setPlayers(prev => prev.map(p => {
@@ -1105,17 +1167,13 @@ export default function App() {
             const caloFee = 3_000_000;
             if (player.isAi) {
               const aiOwnedTiles = perimeterTiles.filter(t => t.ownerId === player.id);
-              let currentCash = player.cash;
-              const soldPropertyIds: number[] = [];
-              const soldPropertyTitles: string[] = [];
-              for (const prop of aiOwnedTiles) {
-                if (currentCash >= caloFee) break;
-                const sellVal = calculatePropertySellValue(prop, macro);
-                currentCash += sellVal;
-                soldPropertyIds.push(prop.id);
-                soldPropertyTitles.push(prop.name);
-              }
-              if (currentCash >= caloFee) {
+              const { survived, finalCash: currentCash, soldPropertyIds, soldPropertyTitles } = liquidatePropertiesForDebt(
+                aiOwnedTiles,
+                player.cash,
+                caloFee,
+                macro
+              );
+              if (survived) {
                 setPerimeterTiles(prev => prev.map(t => soldPropertyIds.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
                 addLog(`${player.name} (AI) terpaksa menjual aset (${soldPropertyTitles.join(', ')}) untuk bayar calo Dukcapil Rp 3.000.000!`, 'DANGER', player.id);
                 setPlayers(prev => prev.map(p => p.id === player.id ? {
@@ -2459,40 +2517,17 @@ export default function App() {
     const nextRound = cycleRound + 1;
     setCycleRound(nextRound);
 
-    // Calculate current week (1-4) and whether a new month has arrived:
-    // Week progresses every 2 rounds: round 1-2 = w1, round 3-4 = w2, round 5-6 = w3, round 7-8 = w4
-    const weekNumber = (((Math.floor((nextRound - 1) / 2)) % 4) + 1);
-    const isNewMonth = (nextRound - 1) % 8 === 0 && nextRound > 1;
-
-    let nextMonth = macro.monthIndex;
-    let nextYear = macro.year;
+    const { nextMacro, weekNumber, isNewMonth } = advanceMacroCycle(macro, nextRound);
+    const {
+      monthIndex: nextMonth,
+      year: nextYear,
+      inflationRate: newInflation,
+      biRate: newBi,
+      usdIdrRate: newUsd,
+      trend: newTrend
+    } = nextMacro;
 
     if (isNewMonth) {
-      nextMonth = (macro.monthIndex % 12) + 1;
-      if (nextMonth === 1) nextYear = macro.year + 1;
-    }
-
-    let newInflation = macro.inflationRate;
-    let newBi = macro.biRate;
-    let newUsd = macro.usdIdrRate;
-    let newTrend = macro.trend;
-
-    // Only fluctuate inflation when an entire month passes (every 8 rounds)
-    if (isNewMonth) {
-      const inflationDelta = Number((Math.random() * 1.6 - 0.7).toFixed(1));
-      newInflation = Math.max(2.5, Math.min(18.0, Number((macro.inflationRate + inflationDelta).toFixed(1))));
-      
-      const biDelta = Number((Math.random() * 0.5 - 0.2).toFixed(2));
-      newBi = Math.max(4.5, Math.min(10.0, Number((macro.biRate + biDelta).toFixed(2))));
-
-      const usdDelta = Math.round(Math.random() * 300 - 100);
-      newUsd = Math.max(15200, Math.min(18000, macro.usdIdrRate + usdDelta));
-
-      if (newInflation > 10.0) newTrend = 'CRISIS';
-      else if (newInflation > 7.0) newTrend = 'VOLATILE';
-      else if (inflationDelta > 0.4) newTrend = 'RISING';
-      else newTrend = 'STABLE';
-
       setMonthNotice({
         monthName: MONTH_NAMES[nextMonth - 1],
         monthIndex: nextMonth,
@@ -2503,15 +2538,7 @@ export default function App() {
       addLog(`🗓️ PERGANTIAN BULAN: Memasuki Bulan ${MONTH_NAMES[nextMonth - 1]} ${nextYear} (Putaran #${nextRound})! Laporan inflasi: ${newInflation}%, BI-Rate: ${newBi}%.`, 'SYSTEM');
     }
 
-    setMacro({
-      weekIndex: weekNumber,
-      monthIndex: nextMonth,
-      year: nextYear,
-      inflationRate: newInflation,
-      biRate: newBi,
-      usdIdrRate: newUsd,
-      trend: newTrend
-    });
+    setMacro(nextMacro);
 
     setMacroHistory(prev => [
       ...prev,
@@ -3275,6 +3302,8 @@ export default function App() {
           onStartGame={handleStartGame} 
           bannerImage={BANNER_IMAGE} 
           onClose={players.length > 0 && !isGameOver ? () => setIsSetupOpen(false) : undefined}
+          savedSnapshot={savedSnapshot}
+          onResumeSavedGame={handleResumeSavedGame}
         />
       )}
 
