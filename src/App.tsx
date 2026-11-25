@@ -129,6 +129,8 @@ import { BreakingNewsBanner } from './components/BreakingNewsBanner';
 import { PlayerStatsDrawer } from './components/PlayerStatsDrawer';
 import { SetupGameModal } from './components/SetupGameModal';
 import { QuickGuideModal } from './components/QuickGuideModal';
+import { TradeModal } from './components/TradeModal';
+import { TradeOffer, applyTradeOffer } from './engine/trade';
 import { GameOverModal } from './components/GameOverModal';
 import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
@@ -150,6 +152,7 @@ import {
   RotateCcw, 
   Zap,
   HelpCircle, 
+  ArrowLeftRight,
   Scale, 
   AlertTriangle,
   Landmark,
@@ -278,6 +281,7 @@ function GameContent() {
 
   const [savedSnapshot, setSavedSnapshot] = useState<SavedGameSnapshot | null>(() => loadGameSnapshot());
   const [showQuickGuide, setShowQuickGuide] = useState<boolean>(false);
+  const [showTradeModal, setShowTradeModal] = useState<boolean>(false);
   const [gameSpeed, setGameSpeed] = useState<1 | 2 | 4>(1);
   const pace = (ms: number) => Math.max(120, Math.round(ms / gameSpeed));
 
@@ -477,6 +481,18 @@ function GameContent() {
     setIsRolling(false);
     setIsMoving(false);
     setLastRoll(null);
+    soundManager.playVictory();
+  };
+
+  // Eksekusi negosiasi barter properti antar pemain
+  const handleExecuteTrade = (offer: TradeOffer) => {
+    const { players: nextPlayers, perimeterTiles: nextTiles } = applyTradeOffer(offer, players, perimeterTiles);
+    setPlayers(() => nextPlayers);
+    setPerimeterTiles(() => nextTiles);
+    const proposer = players.find(p => p.id === offer.proposerId);
+    const target = players.find(p => p.id === offer.targetId);
+    addLog(`💼 DEAL BARTER! ${proposer?.name ?? 'Pemain'} & ${target?.name ?? 'Pemain'} menyelesaikan kesepakatan properti.`, 'CASH', offer.proposerId);
+    setShowTradeModal(false);
     soundManager.playVictory();
   };
 
@@ -2819,7 +2835,7 @@ function GameContent() {
     : perimeterTiles[0];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden">
       {/* 3-Zone Top Bar Contract */}
       <header className="flex items-center justify-between gap-3 sm:gap-8 px-3 sm:px-8 py-2.5 sm:py-3.5 border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-40 backdrop-blur-md">
         {/* Zone 1: Single text wordmark */}
@@ -2851,7 +2867,7 @@ function GameContent() {
         </nav>
 
         {/* Zone 3: Primary action & controls */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto max-w-[60vw] sm:max-w-none">
           {gameMode === 'FAST' && (
             <span className="hidden lg:inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-mono font-bold">
               Cepat P{Math.min(cycleRound, FAST_MODE_MAX_ROUNDS)}/{FAST_MODE_MAX_ROUNDS}
@@ -2865,6 +2881,16 @@ function GameContent() {
             <HelpCircle className="w-4 h-4 text-amber-400" />
             <span className="hidden xl:inline">Panduan</span>
           </button>
+          {!isSetupOpen && !isGameOver && activePlayer && !activePlayer.isBankrupt && (
+            <button
+              onClick={() => setShowTradeModal(true)}
+              title="Buka Meja Negosiasi & Barter Properti"
+              className="min-h-[40px] py-2 px-2.5 text-xs font-bold text-slate-300 hover:text-emerald-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <ArrowLeftRight className="w-4 h-4 text-emerald-400" />
+              <span className="hidden xl:inline">Barter</span>
+            </button>
+          )}
           <button
             onClick={() => setGameSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 4 : 1))}
             title="Ubah Kecepatan Giliran AI (1x / 2x / Kilat)"
@@ -3302,6 +3328,19 @@ function GameContent() {
         isOpen={showQuickGuide}
         onClose={() => setShowQuickGuide(false)}
       />
+
+      {/* 1b. Meja Negosiasi & Barter Properti */}
+      {showTradeModal && activePlayer && !activePlayer.isBankrupt && (
+        <TradeModal
+          isOpen={showTradeModal}
+          proposer={activePlayer}
+          players={players}
+          perimeterTiles={perimeterTiles}
+          macro={macro}
+          onExecuteTrade={handleExecuteTrade}
+          onClose={() => setShowTradeModal(false)}
+        />
+      )}
 
       {/* 2. Dilemma & Opportunity Card Modal */}
       {activeDilemmaCard && activePlayer && (

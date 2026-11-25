@@ -39,14 +39,14 @@ Tujuan: Memperdalam strategi permainan dan kenyamanan bermain di berbagai perang
 
 - [x] **Kecerdasan AI & Level Kesulitan**
   - Tambah opsi kepribadian/kesulitan AI (Santai, Agresif, Koruptor) di `SetupGameModal` dan `src/engine/ai.ts` untuk menimbang pembelian properti, Rute Korupsi, dan lobi RUU Parlemen.
-- [ ] **Negosiasi & Barter Antar Pemain**
+- [x] **Negosiasi & Barter Antar Pemain**
   - Fitur tukar/jual-beli properti langsung antar pemain dan lobi kesepakatan suara di Parlemen.
 - [x] **Pengaturan Tempo & Mode Cepat**
   - [x] Opsi kecepatan giliran AI (`1x`, `2x`, `Kilat`) di top bar `App.tsx`.
   - [x] *Fast Mode* (15 Putaran) dengan pemenang berdasarkan total kekayaan bersih tertinggi.
-- [ ] **Onboarding & Responsivitas Mobile**
+- [x] **Onboarding & Responsivitas Mobile**
   - [x] Ringkasan aturan singkat (*Quick Guide*) via `QuickGuideModal`.
-  - [ ] Penyempurnaan tata letak papan/HUD pada layar ponsel.
+  - [x] Penyempurnaan tata letak papan/HUD pada layar ponsel.
 
 ---
 
