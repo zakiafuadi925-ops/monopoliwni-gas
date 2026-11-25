@@ -2,6 +2,7 @@ import {
   ActiveLaw,
   BoardTile,
   GameLogItem,
+  GameMode,
   MacroEconomy,
   MacroHistoryPoint,
   Player,
@@ -14,6 +15,7 @@ const SNAPSHOT_VERSION = 1;
 export interface SavedGameSnapshot {
   version: number;
   savedAt: string;
+  gameMode?: GameMode;
   players: Player[];
   activePlayerIndex: number;
   perimeterTiles: BoardTile[];

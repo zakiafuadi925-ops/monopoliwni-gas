@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { CHARACTER_ARCHETYPES } from '../data/characters';
-import { AiDifficulty, Player, CharacterArchetype } from '../types/game';
-import { Users, Bot, User, Play, Sparkles, Check, RotateCcw } from 'lucide-react';
+import { AiDifficulty, GameMode, Player, CharacterArchetype } from '../types/game';
+import { Users, Bot, User, Play, Sparkles, Check, RotateCcw, Zap } from 'lucide-react';
 import { soundManager } from '../utils/sound';
 import { SavedGameSnapshot } from '../engine/persistence';
 
 interface SetupGameModalProps {
-  onStartGame: (players: Player[]) => void;
+  onStartGame: (players: Player[], gameMode: GameMode) => void;
   bannerImage: string;
   onClose?: () => void;
   savedSnapshot?: SavedGameSnapshot | null;
@@ -28,6 +28,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
   onResumeSavedGame
 }) => {
   const [numPlayers, setNumPlayers] = useState<number>(3);
+  const [gameMode, setGameMode] = useState<GameMode>('SURVIVAL');
 
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([
     { name: 'Pemain 1', isAi: false, archetypeId: 'bambang_umr', aiDifficulty: 'SANTAI' },
@@ -80,7 +81,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
       };
     });
 
-    onStartGame(finalizedPlayers);
+    onStartGame(finalizedPlayers, gameMode);
   };
 
   return (
@@ -138,19 +139,41 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
               </div>
             </div>
 
-            <div className="bg-amber-950/30 border border-amber-500/30 rounded-lg p-2.5 flex flex-col justify-between">
+            <div className="bg-amber-950/30 border border-amber-500/30 rounded-lg p-2.5 flex flex-col justify-between gap-2">
               <div>
-                <span className="text-[11px] uppercase font-bold text-amber-300 block mb-0.5">
-                  Aturan Eliminasi & Survival:
+                <span className="text-[11px] uppercase font-bold text-amber-300 flex items-center gap-1 mb-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  Mode Permainan:
                 </span>
-                <p className="text-[10px] text-slate-300 leading-snug">
-                  • Kalah saat kehabisan uang kas (Rp 0).<br />
-                  • Tertangkap KPK tanpa uang suap Rp 2 Jt langsung gugur!<br />
-                  • Stres 100% wajib bayar psikolog Rp 1 Jt (-20% stres).
-                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setGameMode('SURVIVAL')}
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                      gameMode === 'SURVIVAL'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500'
+                    }`}
+                  >
+                    Survival Penuh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGameMode('FAST')}
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                      gameMode === 'FAST'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500'
+                    }`}
+                  >
+                    Mode Cepat (15P)
+                  </button>
+                </div>
               </div>
-              <span className="text-[10px] text-amber-400 font-bold block mt-1 font-mono">
-                Pemenang: Penyintas Terakhir yang Bertahan Hidup!
+              <span className="text-[10px] text-amber-300/90 font-medium block leading-snug">
+                {gameMode === 'FAST'
+                  ? 'Batas 15 Putaran: Pemenang ditentukan dari total kekayaan bersih tertinggi (kas + aset) di akhir Putaran #15!'
+                  : 'Survival Penuh: Kalah saat bangkrut; pemenang adalah penyintas terakhir yang bertahan hidup.'}
               </span>
             </div>
           </div>

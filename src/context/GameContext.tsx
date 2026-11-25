@@ -6,6 +6,7 @@ import {
   ActiveLaw,
   BoardTile,
   GameLogItem,
+  GameMode,
   MacroEconomy,
   MacroHistoryPoint,
   Player,
@@ -182,6 +183,7 @@ export interface GameState {
   isSetupOpen: boolean;
   isGameOver: boolean;
   gameOverReason: string;
+  gameMode: GameMode;
   players: Player[];
   activePlayerIndex: number;
   perimeterTiles: BoardTile[];
@@ -201,6 +203,7 @@ export function createInitialGameState(): GameState {
     isSetupOpen: true,
     isGameOver: false,
     gameOverReason: '',
+    gameMode: 'SURVIVAL',
     players: defaultPlayers,
     activePlayerIndex: 0,
     perimeterTiles: PERIMETER_TILES,
@@ -222,7 +225,7 @@ function applyUpdater<T>(current: T, updater: Updater<T>): T {
 }
 
 export type GameAction =
-  | { type: 'INIT_GAME'; players: Player[] }
+  | { type: 'INIT_GAME'; players: Player[]; gameMode?: GameMode }
   | { type: 'RESUME_GAME'; snapshot: SavedGameSnapshot }
   | { type: 'SET_IS_SETUP_OPEN'; payload: Updater<boolean> }
   | { type: 'SET_IS_GAME_OVER'; payload: Updater<boolean> }
@@ -247,6 +250,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         isSetupOpen: false,
         isGameOver: false,
         gameOverReason: '',
+        gameMode: action.gameMode ?? 'SURVIVAL',
         players: action.players,
         activePlayerIndex: 0,
         perimeterTiles: PERIMETER_TILES.map(t => ({ ...t, ownerId: null, level: 1 })),
@@ -265,6 +269,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         isSetupOpen: false,
         isGameOver: false,
         gameOverReason: '',
+        gameMode: action.snapshot.gameMode ?? 'SURVIVAL',
         players: action.snapshot.players,
         activePlayerIndex: action.snapshot.activePlayerIndex,
         perimeterTiles: action.snapshot.perimeterTiles,

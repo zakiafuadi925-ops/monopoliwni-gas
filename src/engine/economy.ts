@@ -1,5 +1,52 @@
 import { ActiveLaw, BoardTile, MacroEconomy, Player } from '../types/game';
 
+export const FAST_MODE_MAX_ROUNDS = 15;
+
+/**
+ * Calculate a player's total net worth (cash + inflation-adjusted property values & upgrades).
+ */
+export function calculatePlayerNetWorth(
+  player: Player,
+  tiles: BoardTile[],
+  macro: MacroEconomy
+): number {
+  const inflationFactor = 1 + (macro.inflationRate / 100);
+  let propValuation = 0;
+  for (const tileId of player.ownedProperties) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (tile && tile.price) {
+      const base = tile.price * inflationFactor;
+      const upgradeBase = (tile.upgradeCost || 0) * (tile.level ? tile.level - 1 : 0);
+      propValuation += base + upgradeBase;
+    }
+  }
+  return Math.round(player.cash + propValuation);
+}
+
+/**
+ * Find the richest surviving player by net worth (used for Fast Mode end-of-round-limit victory).
+ */
+export function findNetWorthWinner(
+  players: Player[],
+  tiles: BoardTile[],
+  macro: MacroEconomy
+): { winner: Player; netWorth: number } | null {
+  const alive = players.filter(p => !p.isBankrupt);
+  const pool = alive.length > 0 ? alive : players;
+  if (pool.length === 0) return null;
+
+  let bestPlayer = pool[0];
+  let bestWorth = calculatePlayerNetWorth(bestPlayer, tiles, macro);
+  for (let i = 1; i < pool.length; i++) {
+    const worth = calculatePlayerNetWorth(pool[i], tiles, macro);
+    if (worth > bestWorth) {
+      bestWorth = worth;
+      bestPlayer = pool[i];
+    }
+  }
+  return { winner: bestPlayer, netWorth: bestWorth };
+}
+
 /**
  * Calculate emergency 80% liquidation sell value of a property adjusted for inflation and upgrades.
  */

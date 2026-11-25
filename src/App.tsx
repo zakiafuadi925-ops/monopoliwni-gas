@@ -12,6 +12,7 @@ import {
   BreakingNewsEvent, 
   GameLogItem, 
   DilemmaCard,
+  GameMode,
   MacroHistoryPoint,
   KonohaMacroBuff,
   PlayerCorruptionHistoryPoint
@@ -23,9 +24,11 @@ import { BREAKING_NEWS_TEMPLATES, LAW_PROPOSALS, LawProposal } from './data/laws
 import { formatRupiah, formatRupiahShort } from './utils/format';
 import { soundManager } from './utils/sound';
 import {
+  FAST_MODE_MAX_ROUNDS,
   advanceMacroCycle,
   calculatePropertyRent,
   calculatePropertySellValue,
+  findNetWorthWinner,
   liquidatePropertiesForDebt
 } from './engine/economy';
 import {
@@ -125,6 +128,7 @@ import { DrasticLawBanner } from './components/DrasticLawBanner';
 import { BreakingNewsBanner } from './components/BreakingNewsBanner';
 import { PlayerStatsDrawer } from './components/PlayerStatsDrawer';
 import { SetupGameModal } from './components/SetupGameModal';
+import { QuickGuideModal } from './components/QuickGuideModal';
 import { GameOverModal } from './components/GameOverModal';
 import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
@@ -144,7 +148,8 @@ import {
   VolumeX, 
   Info, 
   RotateCcw, 
-  Zap, 
+  Zap,
+  HelpCircle, 
   Scale, 
   AlertTriangle,
   Landmark,
@@ -241,6 +246,7 @@ function GameContent() {
       isSetupOpen,
       isGameOver,
       gameOverReason,
+      gameMode,
       players,
       activePlayerIndex,
       perimeterTiles,
@@ -271,6 +277,7 @@ function GameContent() {
   } = useGame();
 
   const [savedSnapshot, setSavedSnapshot] = useState<SavedGameSnapshot | null>(() => loadGameSnapshot());
+  const [showQuickGuide, setShowQuickGuide] = useState<boolean>(false);
   const [gameSpeed, setGameSpeed] = useState<1 | 2 | 4>(1);
   const pace = (ms: number) => Math.max(120, Math.round(ms / gameSpeed));
 
@@ -431,6 +438,7 @@ function GameContent() {
     if (isRolling || isMoving) return;
 
     saveGameSnapshot({
+      gameMode,
       players,
       activePlayerIndex,
       perimeterTiles,
@@ -472,11 +480,11 @@ function GameContent() {
     soundManager.playVictory();
   };
 
-  // Initialize game from Setup Modal (Survival Mode)
-  const handleStartGame = (configuredPlayers: Player[]) => {
+  // Initialize game from Setup Modal (Survival or Fast Mode)
+  const handleStartGame = (configuredPlayers: Player[], selectedMode: GameMode = gameMode) => {
     clearGameSnapshot();
     setSavedSnapshot(null);
-    dispatch({ type: 'INIT_GAME', players: configuredPlayers });
+    dispatch({ type: 'INIT_GAME', players: configuredPlayers, gameMode: selectedMode });
     setHasRolled(false);
     setIsRolling(false);
     setIsMoving(false);
@@ -504,7 +512,12 @@ function GameContent() {
     setCurrentNews(null);
 
     soundManager.playVictory();
-    addLog(`Pertarungan Survival WNI dimulai dengan ${configuredPlayers.length} pemain! Kemenangan sejati adalah siapa yang mampu bertahan hidup paling lama!`, 'SYSTEM');
+    addLog(
+      selectedMode === 'FAST'
+        ? `Mode Cepat (15 Putaran) dimulai dengan ${configuredPlayers.length} pemain! Kekayaan bersih tertinggi di akhir Putaran #15 menang!`
+        : `Pertarungan Survival WNI dimulai dengan ${configuredPlayers.length} pemain! Kemenangan sejati adalah siapa yang mampu bertahan hidup paling lama!`,
+      'SYSTEM'
+    );
   };
 
   // Handler to start a new round / reset game via Setup Modal
@@ -2588,6 +2601,16 @@ function GameContent() {
     }
 
     addLog(`Siklus Putaran #${nextRound} dimulai (Minggu ${weekNumber}/4).`, 'SYSTEM');
+
+    if (gameMode === 'FAST' && nextRound > FAST_MODE_MAX_ROUNDS) {
+      const result = findNetWorthWinner(players, perimeterTiles, nextMacro);
+      if (result) {
+        setIsGameOver(true);
+        setGameOverReason(
+          `Mode Cepat (${FAST_MODE_MAX_ROUNDS} Putaran) selesai! ${result.winner.name} keluar sebagai juara dengan total kekayaan bersih ${formatRupiah(result.netWorth)}!`
+        );
+      }
+    }
   };
 
   // Bot AI Automation effect
@@ -2829,6 +2852,19 @@ function GameContent() {
 
         {/* Zone 3: Primary action & controls */}
         <div className="flex items-center gap-2 shrink-0">
+          {gameMode === 'FAST' && (
+            <span className="hidden lg:inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-mono font-bold">
+              Cepat P{Math.min(cycleRound, FAST_MODE_MAX_ROUNDS)}/{FAST_MODE_MAX_ROUNDS}
+            </span>
+          )}
+          <button
+            onClick={() => setShowQuickGuide(true)}
+            title="Panduan Singkat Bermain Monopoli WNI"
+            className="min-h-[40px] py-2 px-2.5 text-xs font-bold text-slate-300 hover:text-amber-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <HelpCircle className="w-4 h-4 text-amber-400" />
+            <span className="hidden xl:inline">Panduan</span>
+          </button>
           <button
             onClick={() => setGameSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 4 : 1))}
             title="Ubah Kecepatan Giliran AI (1x / 2x / Kilat)"
@@ -3261,6 +3297,11 @@ function GameContent() {
           onResumeSavedGame={handleResumeSavedGame}
         />
       )}
+
+      <QuickGuideModal
+        isOpen={showQuickGuide}
+        onClose={() => setShowQuickGuide(false)}
+      />
 
       {/* 2. Dilemma & Opportunity Card Modal */}
       {activeDilemmaCard && activePlayer && (

@@ -140,6 +140,8 @@ export interface CharacterArchetype {
 
 export type AiDifficulty = 'SANTAI' | 'AGRESIF' | 'KORUPTOR';
 
+export type GameMode = 'SURVIVAL' | 'FAST';
+
 export interface Player {
   id: string;
   name: string;

@@ -4,6 +4,7 @@ import { formatRupiah } from '../utils/format';
 import { Trophy, RotateCcw, Crown, HeartCrack, Award } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundManager } from '../utils/sound';
+import { calculatePlayerNetWorth } from '../engine/economy';
 
 interface GameOverModalProps {
   players: Player[];
@@ -22,20 +23,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   onQuickRestart,
   reason
 }) => {
-  const inflationFactor = 1 + (macro.inflationRate / 100);
-
-  const calculateNetWorth = (p: Player) => {
-    let propValuation = 0;
-    p.ownedProperties.forEach(tileId => {
-      const tile = tiles.find(t => t.id === tileId);
-      if (tile && tile.price) {
-        const base = tile.price * inflationFactor;
-        const upgradeBase = (tile.upgradeCost || 0) * (tile.level ? tile.level - 1 : 0);
-        propValuation += base + upgradeBase;
-      }
-    });
-    return Math.round(p.cash + propValuation);
-  };
+  const calculateNetWorth = (p: Player) => calculatePlayerNetWorth(p, tiles, macro);
 
   const sortedPlayers = [...players].sort((a, b) => {
     if (a.isBankrupt && !b.isBankrupt) return 1;

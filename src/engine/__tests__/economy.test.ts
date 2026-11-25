@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   advanceMacroCycle,
+  calculatePlayerNetWorth,
   calculatePropertyRent,
   calculatePropertySellValue,
   computeMacroTrend,
+  findNetWorthWinner,
   liquidatePropertiesForDebt
 } from '../economy';
 import { ActiveLaw, BoardTile, MacroEconomy, Player } from '../../types/game';
@@ -148,5 +150,23 @@ describe('macro cycle progression', () => {
     expect(newMonth.isNewMonth).toBe(true);
     expect(newMonth.weekNumber).toBe(1);
     expect(newMonth.nextMacro.monthIndex).toBe(2);
+  });
+});
+
+describe('net worth and fast mode winner', () => {
+  it('calculates net worth including inflation-adjusted property prices and upgrades', () => {
+    const p = { ...baseOwner, cash: 20_000_000, ownedProperties: [1] };
+    // price=10M * 1.1 = 11M, upgrade=5M * 1 = 5M => 16M + 20M = 36M
+    expect(calculatePlayerNetWorth(p, [sampleTile], baseMacro)).toBe(36_000_000);
+  });
+
+  it('picks the richest non-bankrupt survivor as winner', () => {
+    const p1 = { ...baseOwner, id: 'p1', cash: 80_000_000, ownedProperties: [], isBankrupt: true };
+    const p2 = { ...baseOwner, id: 'p2', cash: 30_000_000, ownedProperties: [1] };
+    const p3 = { ...baseOwner, id: 'p3', cash: 25_000_000, ownedProperties: [] };
+
+    const result = findNetWorthWinner([p1, p2, p3], [sampleTile], baseMacro);
+    expect(result?.winner.id).toBe('p2');
+    expect(result?.netWorth).toBe(46_000_000);
   });
 });
