@@ -138,11 +138,14 @@ export interface CharacterArchetype {
   kpkRiskMultiplier: number;
 }
 
+export type AiDifficulty = 'SANTAI' | 'AGRESIF' | 'KORUPTOR';
+
 export interface Player {
   id: string;
   name: string;
   archetypeId: string;
   isAi: boolean;
+  aiDifficulty?: AiDifficulty;
   position: number; // 0 - 27 for perimeter, or 100-102 for corruption route
   cash: number;
   stress: number; // 0 to 100 (%)

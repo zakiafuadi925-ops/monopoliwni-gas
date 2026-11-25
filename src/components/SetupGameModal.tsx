@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CHARACTER_ARCHETYPES } from '../data/characters';
-import { Player, CharacterArchetype } from '../types/game';
+import { AiDifficulty, Player, CharacterArchetype } from '../types/game';
 import { Users, Bot, User, Play, Sparkles, Check, RotateCcw } from 'lucide-react';
 import { soundManager } from '../utils/sound';
 import { SavedGameSnapshot } from '../engine/persistence';
@@ -17,6 +17,7 @@ interface PlayerConfig {
   name: string;
   isAi: boolean;
   archetypeId: string;
+  aiDifficulty: AiDifficulty;
 }
 
 export const SetupGameModal: React.FC<SetupGameModalProps> = ({
@@ -29,10 +30,10 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
   const [numPlayers, setNumPlayers] = useState<number>(3);
 
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([
-    { name: 'Pemain 1', isAi: false, archetypeId: 'bambang_umr' },
-    { name: 'Pemain 2 (Ordal)', isAi: true, archetypeId: 'pak_joko_asn' },
-    { name: 'Pemain 3 (Caleg)', isAi: true, archetypeId: 'daud_politisi' },
-    { name: 'Pemain 4 (Sultan)', isAi: true, archetypeId: 'kevin_sultan' },
+    { name: 'Pemain 1', isAi: false, archetypeId: 'bambang_umr', aiDifficulty: 'SANTAI' },
+    { name: 'Pemain 2 (Ordal)', isAi: true, archetypeId: 'pak_joko_asn', aiDifficulty: 'SANTAI' },
+    { name: 'Pemain 3 (Caleg)', isAi: true, archetypeId: 'daud_politisi', aiDifficulty: 'KORUPTOR' },
+    { name: 'Pemain 4 (Sultan)', isAi: true, archetypeId: 'kevin_sultan', aiDifficulty: 'AGRESIF' },
   ]);
 
   const updateConfig = (idx: number, patch: Partial<PlayerConfig>) => {
@@ -53,6 +54,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
         name: cfg.name.trim() || `Pemain ${idx + 1}`,
         archetypeId: arch.id,
         isAi: cfg.isAi,
+        aiDifficulty: cfg.isAi ? cfg.aiDifficulty : undefined,
         position: 0,
         cash: arch.startingCash,
         stress: arch.startingStress,
@@ -203,6 +205,19 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
                         {pCfg.isAi ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
                         <span>{pCfg.isAi ? 'Bot AI' : 'Manusia'}</span>
                       </button>
+
+                      {pCfg.isAi && (
+                        <select
+                          value={pCfg.aiDifficulty}
+                          onChange={e => updateConfig(idx, { aiDifficulty: e.target.value as AiDifficulty })}
+                          title="Kepribadian & Tingkat Kesulitan Bot AI"
+                          className="min-h-[44px] bg-slate-900 border border-purple-800/70 rounded-lg px-2 py-2 text-xs text-purple-200 focus:outline-none focus:border-amber-400"
+                        >
+                          <option value="SANTAI">AI: Santai</option>
+                          <option value="AGRESIF">AI: Agresif</option>
+                          <option value="KORUPTOR">AI: Koruptor</option>
+                        </select>
+                      )}
 
                       {/* Archetype Selector */}
                       <select

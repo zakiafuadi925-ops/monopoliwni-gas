@@ -25,9 +25,9 @@ Tujuan: Memecah monolit `src/App.tsx` (3.460 baris) agar mudah dirawat, diuji, d
 
 - [x] **Ekstrak Pure Game Engine (`src/engine/`)**
   - [x] Pisahkan logika kalkulasi sewa, likuidasi aset, dan makroekonomi ke `src/engine/economy.ts`.
-  - [ ] Pisahkan resolusi kartu, efek RUU parlemen, dan keputusan bot AI dari komponen UI.
-- [ ] **Sentralisasi State Management**
-  - Pindahkan state permainan dari `src/App.tsx` ke `useReducer` + React Context atau Zustand store.
+  - [x] Pisahkan logika keputusan bot AI (`src/engine/ai.ts`) dan kalkulasi koalisi/sita aset Parlemen (`src/engine/politics.ts`) dari komponen UI.
+- [x] **Sentralisasi State Management**
+  - Pindahkan state permainan inti dari `src/App.tsx` ke `useReducer` + React Context (`src/context/GameContext.tsx`).
 - [x] **Auto-Save & Resume Game (`localStorage`)**
   - Simpan snapshot permainan ke `localStorage` (`src/engine/persistence.ts`) dan sediakan opsi *Lanjutkan Sesi Terakhir* di `SetupGameModal`.
 
@@ -37,12 +37,13 @@ Tujuan: Memecah monolit `src/App.tsx` (3.460 baris) agar mudah dirawat, diuji, d
 
 Tujuan: Memperdalam strategi permainan dan kenyamanan bermain di berbagai perangkat.
 
-- [ ] **Kecerdasan AI & Level Kesulitan**
-  - Tambah opsi kepribadian/kesulitan AI (Santai, Agresif, Oportunis Koruptor) sehingga AI bisa menimbang risiko masuk Rute Korupsi, melobi RUU koalisi, dan mencuci uang secara lebih strategis.
+- [x] **Kecerdasan AI & Level Kesulitan**
+  - Tambah opsi kepribadian/kesulitan AI (Santai, Agresif, Koruptor) di `SetupGameModal` dan `src/engine/ai.ts` untuk menimbang pembelian properti, Rute Korupsi, dan lobi RUU Parlemen.
 - [ ] **Negosiasi & Barter Antar Pemain**
   - Fitur tukar/jual-beli properti langsung antar pemain dan lobi kesepakatan suara di Parlemen.
 - [ ] **Pengaturan Tempo & Mode Cepat**
-  - Opsi kecepatan animasi & giliran AI (`1x`, `2x`, `Skip`), serta *Fast Mode* dengan batas putaran/target kekayaan lebih singkat.
+  - [x] Opsi kecepatan giliran AI (`1x`, `2x`, `Kilat`) di top bar `App.tsx`.
+  - [ ] *Fast Mode* dengan batas putaran/target kekayaan lebih singkat.
 - [ ] **Onboarding & Responsivitas Mobile**
   - Ringkasan aturan singkat (*Quick Guide*) untuk pemain baru dan penyempurnaan tata letak papan/HUD pada layar ponsel.
 

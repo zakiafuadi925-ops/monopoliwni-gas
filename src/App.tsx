@@ -34,6 +34,18 @@ import {
   saveGameSnapshot,
   SavedGameSnapshot
 } from './engine/persistence';
+import {
+  chooseAiDilemmaOption,
+  chooseAiParliamentProposal,
+  shouldAiBuyProperty,
+  shouldAiEnterCorruptionRoute,
+  shouldAiPayJailBribe
+} from './engine/ai';
+import {
+  computeCoalitionDeduction,
+  findWealthiestRivalTarget
+} from './engine/politics';
+import { GameProvider, useGame } from './context/GameContext';
 
 const INITIAL_MACRO_HISTORY: MacroHistoryPoint[] = [
   {
@@ -132,6 +144,7 @@ import {
   VolumeX, 
   Info, 
   RotateCcw, 
+  Zap, 
   Scale, 
   AlertTriangle,
   Landmark,
@@ -222,16 +235,46 @@ const createDefaultPlayers = (): Player[] => [
   }
 ];
 
-export default function App() {
-  // Game Setup & Status
-  const [isSetupOpen, setIsSetupOpen] = useState<boolean>(true);
-  const [savedSnapshot, setSavedSnapshot] = useState<SavedGameSnapshot | null>(() => loadGameSnapshot());
-  const [isGameOver, setIsGameOver] = useState<boolean>(false);
-  const [gameOverReason, setGameOverReason] = useState<string>('');
+function GameContent() {
+  const {
+    state: {
+      isSetupOpen,
+      isGameOver,
+      gameOverReason,
+      players,
+      activePlayerIndex,
+      perimeterTiles,
+      corruptionTiles,
+      luxuryTiles,
+      macro,
+      macroHistory,
+      corruptionHistory,
+      activeLaws,
+      cycleRound,
+      logs
+    },
+    dispatch,
+    setIsSetupOpen,
+    setIsGameOver,
+    setGameOverReason,
+    setPlayers,
+    setActivePlayerIndex,
+    setPerimeterTiles,
+    setCorruptionTiles,
+    setLuxuryTiles,
+    setMacro,
+    setMacroHistory,
+    setCorruptionHistory,
+    setActiveLaws,
+    setCycleRound,
+    setLogs
+  } = useGame();
 
-  // Players & Turns
-  const [players, setPlayers] = useState<Player[]>(createDefaultPlayers);
-  const [activePlayerIndex, setActivePlayerIndex] = useState<number>(0);
+  const [savedSnapshot, setSavedSnapshot] = useState<SavedGameSnapshot | null>(() => loadGameSnapshot());
+  const [gameSpeed, setGameSpeed] = useState<1 | 2 | 4>(1);
+  const pace = (ms: number) => Math.max(120, Math.round(ms / gameSpeed));
+
+  // Ephemeral UI & Turn Animation State
   const [hasRolled, setHasRolled] = useState<boolean>(false);
   const [isRolling, setIsRolling] = useState<boolean>(false);
   const [isMoving, setIsMoving] = useState<boolean>(false);
@@ -243,25 +286,6 @@ export default function App() {
     d2: number;
     total: number;
   } | null>(null);
-
-  // Board & Economy
-  const [perimeterTiles, setPerimeterTiles] = useState<BoardTile[]>(PERIMETER_TILES);
-  const [corruptionTiles, setCorruptionTiles] = useState<BoardTile[]>(CORRUPTION_ROUTE_TILES);
-  const [luxuryTiles, setLuxuryTiles] = useState<BoardTile[]>(LUXURY_BOARD_TILES);
-  const [macro, setMacro] = useState<MacroEconomy>({
-    inflationRate: 5.2,
-    biRate: 6.25,
-    usdIdrRate: 16350,
-    trend: 'STABLE',
-    monthIndex: 1,
-    weekIndex: 1,
-    year: 2026,
-    activeKonohaBuffs: []
-  });
-  const [macroHistory, setMacroHistory] = useState<MacroHistoryPoint[]>(INITIAL_MACRO_HISTORY);
-  const [corruptionHistory, setCorruptionHistory] = useState<PlayerCorruptionHistoryPoint[]>(() => createInitialCorruptionHistory(createDefaultPlayers()));
-  const [activeLaws, setActiveLaws] = useState<ActiveLaw[]>([]);
-  const [cycleRound, setCycleRound] = useState<number>(1);
 
   // Helper to record / update D3.js corruption history snapshot
   const recordCorruptionSnapshot = (targetPlayers: Player[], roundNumber: number) => {
@@ -358,7 +382,7 @@ export default function App() {
   } | null>(null);
 
   // Logs - Full scrollable history
-  const [logs, setLogs] = useState<GameLogItem[]>([]);
+
 
   const addLog = (message: string, type: GameLogItem['type'] = 'INFO', playerId?: string) => {
     const p = players.find(x => x.id === playerId);
@@ -440,24 +464,11 @@ export default function App() {
   // Resume saved game from localStorage
   const handleResumeSavedGame = () => {
     if (!savedSnapshot) return;
-    setPlayers(savedSnapshot.players);
-    setActivePlayerIndex(savedSnapshot.activePlayerIndex);
-    setPerimeterTiles(savedSnapshot.perimeterTiles);
-    setCorruptionTiles(savedSnapshot.corruptionTiles);
-    setLuxuryTiles(savedSnapshot.luxuryTiles);
-    setMacro(savedSnapshot.macro);
-    setMacroHistory(savedSnapshot.macroHistory);
-    setCorruptionHistory(savedSnapshot.corruptionHistory);
-    setActiveLaws(savedSnapshot.activeLaws);
-    setCycleRound(savedSnapshot.cycleRound);
-    setLogs(savedSnapshot.logs);
+    dispatch({ type: 'RESUME_GAME', snapshot: savedSnapshot });
     setHasRolled(false);
     setIsRolling(false);
     setIsMoving(false);
     setLastRoll(null);
-    setIsGameOver(false);
-    setGameOverReason('');
-    setIsSetupOpen(false);
     soundManager.playVictory();
   };
 
@@ -465,25 +476,7 @@ export default function App() {
   const handleStartGame = (configuredPlayers: Player[]) => {
     clearGameSnapshot();
     setSavedSnapshot(null);
-    // Reset properties and tiles to clean unowned initial state
-    setPerimeterTiles(PERIMETER_TILES.map(t => ({ ...t, ownerId: null, level: 1 })));
-    setCorruptionTiles(CORRUPTION_ROUTE_TILES.map(t => ({ ...t })));
-
-    setPlayers(configuredPlayers);
-    setCycleRound(1);
-    setMacro({
-      inflationRate: 5.2,
-      biRate: 6.25,
-      usdIdrRate: 16350,
-      trend: 'STABLE',
-      monthIndex: 1,
-      weekIndex: 1,
-      year: 2026,
-      activeKonohaBuffs: []
-    });
-    setMacroHistory(INITIAL_MACRO_HISTORY);
-    setCorruptionHistory(createInitialCorruptionHistory(configuredPlayers));
-    setActivePlayerIndex(0);
+    dispatch({ type: 'INIT_GAME', players: configuredPlayers });
     setHasRolled(false);
     setIsRolling(false);
     setIsMoving(false);
@@ -493,10 +486,6 @@ export default function App() {
     }
     setLastRoll(null);
     setDiceRollAnimation(null);
-    setIsGameOver(false);
-    setGameOverReason('');
-    setIsSetupOpen(false);
-    setLogs([]);
 
     // Clear all lingering notices, alerts, and modal states
     setEliminationNotice(null);
@@ -512,7 +501,6 @@ export default function App() {
     setShowLogsModal(false);
     setIsStatsOpen(false);
     setSelectedTile(null);
-    setActiveLaws([]);
     setCurrentNews(null);
 
     soundManager.playVictory();
@@ -2245,12 +2233,11 @@ export default function App() {
 
     // Deduct political influence
     if (coalitionPartner) {
-      let deductA = Math.min(activePlayer.politicalInfluence, Math.ceil(proposal.requiredInfluence / 2));
-      let deductB = proposal.requiredInfluence - deductA;
-      if (coalitionPartner.politicalInfluence < deductB) {
-        deductB = coalitionPartner.politicalInfluence;
-        deductA = proposal.requiredInfluence - deductB;
-      }
+      const { deductA, deductB } = computeCoalitionDeduction(
+        activePlayer,
+        coalitionPartner,
+        proposal.requiredInfluence
+      );
 
       setPlayers(prev => prev.map(p => {
         if (p.id === activePlayer.id) {
@@ -2320,26 +2307,12 @@ export default function App() {
     // 2. ASSET_CONFISCATION_ACT: Confiscate best land deed from wealthiest non-coalition rival + Rp 25.000.000 fine
     else if (proposal.effectType === 'ASSET_CONFISCATION_ACT') {
       const nonCoalitionRivals = players.filter(p => p.id !== activePlayer.id && p.id !== coalitionPartner?.id && !p.isBankrupt);
-      
-      // Find the wealthiest rival with properties or cash
-      let primeRival: Player | null = null;
-      let maxWealth = -1;
-      for (const rival of nonCoalitionRivals) {
-        const rivalTiles = perimeterTiles.filter(t => t.ownerId === rival.id);
-        const wealth = rival.cash + rivalTiles.reduce((sum, t) => sum + (t.price || 0), 0);
-        if (wealth > maxWealth) {
-          maxWealth = wealth;
-          primeRival = rival;
-        }
-      }
+      const target = findWealthiestRivalTarget(nonCoalitionRivals, perimeterTiles);
 
-      if (primeRival) {
-        // Seize 1 highest-value land deed
-        const rivalTiles = perimeterTiles.filter(t => t.ownerId === primeRival.id);
-        let seizedTile: BoardTile | null = null;
-        if (rivalTiles.length > 0) {
-          seizedTile = rivalTiles.reduce((prev, curr) => ((curr.price || 0) > (prev.price || 0)) ? curr : prev);
-          setPerimeterTiles(prev => prev.map(t => t.id === seizedTile!.id ? { ...t, ownerId: null, level: 1 } : t));
+      if (target) {
+        const { primeRival, seizedTile } = target;
+        if (seizedTile) {
+          setPerimeterTiles(prev => prev.map(t => t.id === seizedTile.id ? { ...t, ownerId: null, level: 1 } : t));
           addLog(`🚨 SITA ASET NEGARA: Sertifikat Tanah ${seizedTile.certificateTitle || seizedTile.name} milik ${primeRival.name} resmi dicabut & disita oleh Satgas Koalisi Parlemen!`, 'DANGER', primeRival.id);
         }
 
@@ -2652,29 +2625,25 @@ export default function App() {
         const curTile = allTiles.find(t => t.id === activePlayer.position);
 
         // AI Decides Property Purchase if landing on unowned perimeter property
-        if (curTile && curTile.actionType === 'PROPERTY' && !curTile.ownerId) {
-          const inflationFactor = 1 + (macro.inflationRate / 100);
-          const cost = Math.round((curTile.price || 0) * inflationFactor);
-          if (activePlayer.cash > cost * 1.35) {
-            handleBuyProperty();
-          }
+        if (curTile && shouldAiBuyProperty(activePlayer, curTile, macro)) {
+          handleBuyProperty();
         }
 
         // Conclude AI turn after a brief delay for human readability
         if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
         aiEndTurnTimerRef.current = setTimeout(() => {
           handleEndTurn();
-        }, 1100);
+        }, pace(1100));
       } else if (activePlayer.inJail) {
-        if (activePlayer.cash >= 20_000_000 && activePlayer.stress > 30) {
+        if (shouldAiPayJailBribe(activePlayer)) {
           handlePayJailBribe();
         }
         if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
         aiEndTurnTimerRef.current = setTimeout(() => {
           handleEndTurn();
-        }, 1000);
+        }, pace(1000));
       }
-    }, 1100);
+    }, pace(1100));
 
     return () => {
       clearTimeout(aiTimer);
@@ -2726,7 +2695,7 @@ export default function App() {
 
     const watchdogTimer = setTimeout(() => {
       handleEndTurn();
-    }, 2400);
+    }, pace(2400));
 
     return () => clearTimeout(watchdogTimer);
   }, [
@@ -2750,10 +2719,8 @@ export default function App() {
   useEffect(() => {
     if (activeDilemmaCard && activePlayer?.isAi) {
       const timer = setTimeout(() => {
-        // Bot selects option A or B based on cash vs stress
-        const choice = activePlayer.stress > 60 ? 'optionB' : 'optionA';
-        handleChooseCardOption(choice);
-      }, 1400);
+        handleChooseCardOption(chooseAiDilemmaOption(activePlayer));
+      }, pace(1400));
       return () => clearTimeout(timer);
     }
   }, [activeDilemmaCard, activePlayer]);
@@ -2762,44 +2729,18 @@ export default function App() {
   useEffect(() => {
     if (showParliament && activePlayer?.isAi) {
       const timer = setTimeout(() => {
-        // AI looks for a coalition partner with highest influence
-        const candidateAllies = players.filter(p => p.id !== activePlayer.id && !p.isBankrupt);
-        const bestAlly = candidateAllies.length > 0 
-          ? candidateAllies.reduce((prev, curr) => curr.politicalInfluence > prev.politicalInfluence ? curr : prev)
-          : undefined;
-
-        const combinedInfluence = activePlayer.politicalInfluence + (bestAlly ? bestAlly.politicalInfluence : 0);
-
-        // Priority 1: Check Coalition Bills if partner available
-        if (bestAlly && combinedInfluence >= 75) {
-          const confiscateProp = LAW_PROPOSALS.find(p => p.id === 'uu_penyitaan_aset');
-          if (confiscateProp) {
-            handlePassLaw(confiscateProp, bestAlly);
-            setTimeout(() => handleEndTurn(), 1400);
-            return;
-          }
-        } else if (bestAlly && combinedInfluence >= 65) {
-          const progTaxProp = LAW_PROPOSALS.find(p => p.id === 'uu_pajak_progresif_drastis');
-          if (progTaxProp) {
-            handlePassLaw(progTaxProp, bestAlly);
-            setTimeout(() => handleEndTurn(), 1400);
-            return;
-          }
-        }
-
-        // Priority 2: Check Solo Bills
-        const affordableSolo = LAW_PROPOSALS.filter(p => !p.isCoalitionOnly && activePlayer.politicalInfluence >= p.requiredInfluence);
-        if (affordableSolo.length > 0) {
-          handlePassLaw(affordableSolo[0]);
-          setTimeout(() => handleEndTurn(), 1400);
+        const decision = chooseAiParliamentProposal(activePlayer, players, LAW_PROPOSALS);
+        if (decision) {
+          handlePassLaw(decision.proposal, decision.coalitionPartner);
+          setTimeout(() => handleEndTurn(), pace(1400));
           return;
         }
 
         // Insufficient political capital: close parliament
         setShowParliament(false);
         addLog(`${activePlayer.name} (AI) meninggalkan Sidang Paripurna tanpa mengesahkan RUU karena modal politik belum mencukupi.`, 'INFO', activePlayer.id);
-        setTimeout(() => handleEndTurn(), 1200);
-      }, 1600);
+        setTimeout(() => handleEndTurn(), pace(1200));
+      }, pace(1600));
 
       return () => clearTimeout(timer);
     }
@@ -2809,8 +2750,7 @@ export default function App() {
   useEffect(() => {
     if (showCorruptionGate && activePlayer?.isAi) {
       const timer = setTimeout(() => {
-        // Greedy AI or Caleg takes corruption
-        if (activePlayer.archetypeId === 'daud_politisi' || activePlayer.kpkSuspicionLevel < 40) {
+        if (shouldAiEnterCorruptionRoute(activePlayer)) {
           setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
             ...p,
             isInCorruptionRoute: true,
@@ -2823,8 +2763,8 @@ export default function App() {
         setShowCorruptionGate(false);
         setTimeout(() => {
           handleEndTurn();
-        }, 1100);
-      }, 1100);
+        }, pace(1100));
+      }, pace(1100));
       return () => clearTimeout(timer);
     }
   }, [showCorruptionGate, activePlayer]);
@@ -2889,6 +2829,21 @@ export default function App() {
 
         {/* Zone 3: Primary action & controls */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setGameSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 4 : 1))}
+            title="Ubah Kecepatan Giliran AI (1x / 2x / Kilat)"
+            className={`min-h-[40px] py-2 px-2.5 sm:px-3 text-xs font-bold rounded-xl border transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+              gameSpeed > 1
+                ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
+                : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'
+            }`}
+          >
+            <Zap className={`w-3.5 h-3.5 ${gameSpeed > 1 ? 'text-amber-400' : 'text-slate-400'}`} />
+            <span className="text-[11px] font-mono font-bold">
+              {gameSpeed === 4 ? 'Kilat' : `${gameSpeed}x`}
+            </span>
+          </button>
+
           <button
             onClick={() => {
               const enabled = soundManager.toggle();
@@ -3485,5 +3440,13 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <GameProvider>
+      <GameContent />
+    </GameProvider>
   );
 }
