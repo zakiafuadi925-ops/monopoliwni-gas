@@ -310,3 +310,20 @@ export async function connectDatabase(): Promise<DatabaseStore> {
     return new MemoryDatabaseStore(dbName);
   }
 }
+
+const globalForDb = globalThis as typeof globalThis & {
+  __monopoliWniDbPromise?: Promise<DatabaseStore>;
+};
+
+/**
+ * Mengembalikan instance DatabaseStore yang di-cache antar pemanggilan serverless (Vercel).
+ */
+export function getCachedDatabase(): Promise<DatabaseStore> {
+  if (!globalForDb.__monopoliWniDbPromise) {
+    globalForDb.__monopoliWniDbPromise = connectDatabase().catch(err => {
+      globalForDb.__monopoliWniDbPromise = undefined;
+      throw err;
+    });
+  }
+  return globalForDb.__monopoliWniDbPromise;
+}
