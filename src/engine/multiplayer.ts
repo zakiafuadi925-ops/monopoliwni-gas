@@ -1,6 +1,6 @@
 import { CHARACTER_ARCHETYPES } from '../data/characters';
 import { GameMode, Player } from '../types/game';
-import { getApiBaseUrl } from './cloudApi';
+import { checkBackendHealth, getApiBaseUrl } from './cloudApi';
 import { SavedGameSnapshot } from './persistence';
 
 export interface OnlineParticipant {
@@ -84,6 +84,7 @@ export function buildOnlinePlayers(participants: OnlineParticipant[]): Player[] 
 
 export async function listOnlineRooms(): Promise<{ rooms: OnlineRoom[]; online: boolean }> {
   try {
+    await checkBackendHealth();
     const res = await fetch(`${getApiBaseUrl()}/api/rooms`, { method: 'GET' });
     if (!res.ok) return { rooms: [], online: false };
     const body = (await res.json()) as { data?: OnlineRoom[] };

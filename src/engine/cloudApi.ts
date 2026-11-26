@@ -26,11 +26,18 @@ export interface CloudApiOptions {
   fetchFn?: typeof fetch;
 }
 
+let detectedBaseUrl: string | null = null;
+
 export function getApiBaseUrl(overrideUrl?: string): string {
   if (overrideUrl) return overrideUrl.replace(/\/$/, '');
   const env = typeof import.meta !== 'undefined' ? import.meta.env : undefined;
-  const raw = env?.VITE_API_URL || env?.VITE_AI_PROXY_URL || 'http://localhost:3001';
-  return String(raw).replace(/\/$/, '');
+  const raw = env?.VITE_API_URL || env?.VITE_AI_PROXY_URL;
+  if (raw) return String(raw).replace(/\/$/, '');
+  return detectedBaseUrl ?? 'http://localhost:3001';
+}
+
+export function setDetectedApiBaseUrl(url: string): void {
+  detectedBaseUrl = url.replace(/\/$/, '');
 }
 
 async function fetchWithTimeout(
@@ -53,21 +60,41 @@ async function fetchWithTimeout(
 export async function checkBackendHealth(
   options: CloudApiOptions = {}
 ): Promise<{ online: boolean; mode?: 'mongodb' | 'memory'; dbName?: string }> {
-  try {
-    const res = await fetchWithTimeout(`${getApiBaseUrl(options.baseUrl)}/api/health`, { method: 'GET' }, options);
-    if (!res.ok) return { online: false };
-    const data = (await res.json()) as {
-      ok?: boolean;
-      database?: { mode?: 'mongodb' | 'memory'; dbName?: string };
-    };
-    return {
-      online: Boolean(data.ok),
-      mode: data.database?.mode,
-      dbName: data.database?.dbName
-    };
-  } catch {
-    return { online: false };
+  const env = typeof import.meta !== 'undefined' ? import.meta.env : undefined;
+  const hasExplicitUrl = Boolean(options.baseUrl || env?.VITE_API_URL || env?.VITE_AI_PROXY_URL);
+  const sameOrigin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : null;
+  const candidates = hasExplicitUrl
+    ? [getApiBaseUrl(options.baseUrl)]
+    : Array.from(
+        new Set([
+          ...(sameOrigin ? [sameOrigin] : []),
+          getApiBaseUrl(),
+          'http://localhost:3001',
+          'http://localhost:3002'
+        ])
+      );
+
+  for (const baseUrl of candidates) {
+    try {
+      const res = await fetchWithTimeout(`${baseUrl}/api/health`, { method: 'GET' }, options);
+      if (!res.ok) continue;
+      const data = (await res.json()) as {
+        ok?: boolean;
+        database?: { mode?: 'mongodb' | 'memory'; dbName?: string };
+      };
+      if (data.ok) {
+        if (!hasExplicitUrl) setDetectedApiBaseUrl(baseUrl);
+        return {
+          online: true,
+          mode: data.database?.mode,
+          dbName: data.database?.dbName
+        };
+      }
+    } catch {
+      // Coba kandidat port berikutnya
+    }
   }
+  return { online: false };
 }
 
 export async function listCloudSaves(limit = 5, options: CloudApiOptions = {}): Promise<CloudSaveRecord[]> {

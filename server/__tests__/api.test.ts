@@ -9,7 +9,7 @@ async function startTestServer() {
   const store = new MemoryDatabaseStore('test_db');
   const roomManager = new RoomManager();
   const server = http.createServer((req, res) => {
-    void handleApiRequest(req, res, store, { geminiApiKey: '', roomManager });
+    void handleApiRequest(req, res, store, { geminiApiKey: '', roomManager, serveStatic: false });
   });
 
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', () => resolve()));
