@@ -16,7 +16,6 @@ import {
 } from './types/game';
 import { PERIMETER_TILES, CORRUPTION_ROUTE_TILES } from './data/tiles';
 import { CHARACTER_ARCHETYPES } from './data/characters';
-import { LAW_PROPOSALS } from './data/laws';
 import { SeasonalEvent } from './engine/seasonalEvents';
 import { formatRupiahShort } from './utils/format';
 import { soundManager } from './utils/sound';
@@ -27,7 +26,8 @@ import { useBoardMovement } from './hooks/useBoardMovement';
 import { usePropertyAndRent } from './hooks/usePropertyAndRent';
 import { useCardEvents } from './hooks/useCardEvents';
 import { useCorruptionAndJail } from './hooks/useCorruptionAndJail';
-import { usePoliticsAndTurn, MonthNoticeState } from './hooks/usePoliticsAndTurn';
+import { usePoliticsAndTurn } from './hooks/usePoliticsAndTurn';
+import { useAiAutomation } from './hooks/useAiAutomation';
 
 // Components
 import { Board } from './components/Board';
@@ -43,13 +43,6 @@ import { GameModals, DrawCardEventState, RentCrisisState } from './components/Ga
 import { RentTransferData } from './components/ManualRentPaymentModal';
 
 // Engine & Data
-import {
-  chooseAiDilemmaOption,
-  chooseAiParliamentProposal,
-  shouldAiBuyProperty,
-  shouldAiEnterCorruptionRoute,
-  shouldAiPayJailBribe
-} from './engine/ai';
 import { TradeOffer, applyTradeOffer } from './engine/trade';
 import { LUXURY_BOARD_TILES } from './data/luxuryProperties';
 
@@ -620,120 +613,21 @@ function GameContent() {
     checkStressThreshold,
   });
 
-  // Bot AI Automation effect
-  useEffect(() => {
-    if (isSetupOpen || isGameOver || !activePlayer || !activePlayer.isAi || activePlayer.isBankrupt) return;
-
-    // Do not proceed with automatic turn if an animation, modal, or crisis is active
-    if (
-      isRolling || 
-      isMoving || 
-      activeDrawCardEvent || 
-      activeDrawCardEventRef.current ||
-      activeDilemmaCard || 
-      showCorruptionGate || 
-      showCorruptionAudit || 
-      showMoneyLaundering ||
-      showKpkBribe || 
-      showParliament || 
-      manualRentData || 
-      rentCrisis
-    ) {
-      return;
-    }
-
-    // AI Turn Execution with clear pacing so human player can observe
-    const aiTimer = setTimeout(() => {
-      if (!hasRolled && !activePlayer.inJail) {
-        // Roll dice
-        const d1 = Math.floor(Math.random() * 6) + 1;
-        const d2 = Math.floor(Math.random() * 6) + 1;
-        handleRollDice(d1, d2, d1 + d2);
-      } else if (hasRolled) {
-        // Pawn has finished moving and all modals/events are clear
-        const allTiles = [...perimeterTiles, ...corruptionTiles, ...luxuryTiles];
-        const curTile = allTiles.find(t => t.id === activePlayer.position);
-
-        // AI Decides Property Purchase if landing on unowned perimeter property
-        if (curTile && shouldAiBuyProperty(activePlayer, curTile, macro)) {
-          handleBuyProperty();
-        }
-
-        // Conclude AI turn after a brief delay for human readability
-        if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
-        aiEndTurnTimerRef.current = setTimeout(() => {
-          handleEndTurn();
-        }, pace(1100));
-      } else if (activePlayer.inJail) {
-        if (shouldAiPayJailBribe(activePlayer)) {
-          handlePayJailBribe();
-        }
-        if (aiEndTurnTimerRef.current) clearTimeout(aiEndTurnTimerRef.current);
-        aiEndTurnTimerRef.current = setTimeout(() => {
-          handleEndTurn();
-        }, pace(1000));
-      }
-    }, pace(1100));
-
-    return () => {
-      clearTimeout(aiTimer);
-      if (aiEndTurnTimerRef.current) {
-        clearTimeout(aiEndTurnTimerRef.current);
-      }
-    };
-  }, [
-    activePlayerIndex, 
-    hasRolled, 
-    isSetupOpen, 
-    isGameOver, 
+  useAiAutomation({
+    isSetupOpen,
+    isGameOver,
     activePlayer,
-    isRolling,
-    isMoving,
-    activeDrawCardEvent,
-    activeDilemmaCard,
-    showCorruptionGate,
-    showCorruptionAudit,
-    showMoneyLaundering,
-    showKpkBribe,
-    showParliament,
-    manualRentData,
-    rentCrisis
-  ]);
-
-  // AI Turn Conclusion Watchdog:
-  // If an AI player has rolled, is not moving, and no interactive modals/crises are active,
-  // this watchdog ensures the turn concludes even if other timers were disrupted by re-renders.
-  useEffect(() => {
-    if (!activePlayer || !activePlayer.isAi || activePlayer.isBankrupt || !hasRolled) return;
-
-    if (
-      isRolling || 
-      isMoving || 
-      activeDrawCardEvent || 
-      activeDrawCardEventRef.current || 
-      activeDilemmaCard || 
-      showCorruptionGate || 
-      showCorruptionAudit || 
-      showMoneyLaundering || 
-      showKpkBribe || 
-      showParliament || 
-      manualRentData || 
-      rentCrisis
-    ) {
-      return;
-    }
-
-    const watchdogTimer = setTimeout(() => {
-      handleEndTurn();
-    }, pace(2400));
-
-    return () => clearTimeout(watchdogTimer);
-  }, [
     activePlayerIndex,
+    players,
+    perimeterTiles,
+    corruptionTiles,
+    luxuryTiles,
+    macro,
     hasRolled,
     isRolling,
     isMoving,
     activeDrawCardEvent,
+    activeDrawCardEventRef,
     activeDilemmaCard,
     showCorruptionGate,
     showCorruptionAudit,
@@ -742,62 +636,19 @@ function GameContent() {
     showParliament,
     manualRentData,
     rentCrisis,
-    activePlayer
-  ]);
-
-  // Handle AI Dilemma Card Auto-Select
-  useEffect(() => {
-    if (activeDilemmaCard && activePlayer?.isAi) {
-      const timer = setTimeout(() => {
-        handleChooseCardOption(chooseAiDilemmaOption(activePlayer));
-      }, pace(1400));
-      return () => clearTimeout(timer);
-    }
-  }, [activeDilemmaCard, activePlayer]);
-
-  // Handle AI Parliament & Coalition Bill Auto-Passing
-  useEffect(() => {
-    if (showParliament && activePlayer?.isAi) {
-      const timer = setTimeout(() => {
-        const decision = chooseAiParliamentProposal(activePlayer, players, LAW_PROPOSALS);
-        if (decision) {
-          handlePassLaw(decision.proposal, decision.coalitionPartner);
-          setTimeout(() => handleEndTurn(), pace(1400));
-          return;
-        }
-
-        // Insufficient political capital: close parliament
-        setShowParliament(false);
-        addLog(`${activePlayer.name} (AI) meninggalkan Sidang Paripurna tanpa mengesahkan RUU karena modal politik belum mencukupi.`, 'INFO', activePlayer.id);
-        setTimeout(() => handleEndTurn(), pace(1200));
-      }, pace(1600));
-
-      return () => clearTimeout(timer);
-    }
-  }, [showParliament, activePlayer, players]);
-
-  // Handle AI Corruption Gate Auto-Select
-  useEffect(() => {
-    if (showCorruptionGate && activePlayer?.isAi) {
-      const timer = setTimeout(() => {
-        if (shouldAiEnterCorruptionRoute(activePlayer)) {
-          setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
-            ...p,
-            isInCorruptionRoute: true,
-            position: 100
-          } : p));
-          addLog(`${activePlayer.name} memutuskan masuk Rute Korupsi!`, 'DANGER', activePlayer.id);
-        } else {
-          addLog(`${activePlayer.name} memilih jalur aman rakyat jelata.`, 'INFO', activePlayer.id);
-        }
-        setShowCorruptionGate(false);
-        setTimeout(() => {
-          handleEndTurn();
-        }, pace(1100));
-      }, pace(1100));
-      return () => clearTimeout(timer);
-    }
-  }, [showCorruptionGate, activePlayer]);
+    aiEndTurnTimerRef,
+    pace,
+    setPlayers,
+    setShowParliament,
+    setShowCorruptionGate,
+    addLog,
+    onRollDice: handleRollDice,
+    onBuyProperty: handleBuyProperty,
+    onPayJailBribe: handlePayJailBribe,
+    onChooseCardOption: handleChooseCardOption,
+    onPassLaw: handlePassLaw,
+    onEndTurn: handleEndTurn,
+  });
 
   // Auto-dismiss survival notices
   useEffect(() => {
