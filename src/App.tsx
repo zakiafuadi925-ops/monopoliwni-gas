@@ -9,24 +9,18 @@ import {
   BoardTile,
   BreakingNewsEvent,
   GameLogItem,
-  DilemmaCard,
-  GameMode,
-  EventOutcomeCard,
-  PlayerCorruptionHistoryPoint
+  DilemmaCard
 } from './types/game';
-import { PERIMETER_TILES, CORRUPTION_ROUTE_TILES } from './data/tiles';
-import { CHARACTER_ARCHETYPES } from './data/characters';
-import { SeasonalEvent } from './engine/seasonalEvents';
-import { formatRupiahShort } from './utils/format';
 import { soundManager } from './utils/sound';
 import { GameProvider, useGame } from './context/GameContext';
 import { BANNER_IMAGE, CREST_IMAGE, MONTH_NAMES } from './constants/gameAssets';
 import { usePersistenceAndMultiplayer } from './hooks/usePersistenceAndMultiplayer';
-import { useBoardMovement } from './hooks/useBoardMovement';
+import { useGameLifecycle, EliminationNoticeState } from './hooks/useGameLifecycle';
+import { useBoardMovement, DiceRollAnimationState, PsychologistNoticeState } from './hooks/useBoardMovement';
 import { usePropertyAndRent } from './hooks/usePropertyAndRent';
 import { useCardEvents } from './hooks/useCardEvents';
 import { useCorruptionAndJail } from './hooks/useCorruptionAndJail';
-import { usePoliticsAndTurn } from './hooks/usePoliticsAndTurn';
+import { usePoliticsAndTurn, MonthNoticeState } from './hooks/usePoliticsAndTurn';
 import { useAiAutomation } from './hooks/useAiAutomation';
 
 // Components
@@ -41,10 +35,6 @@ import { LiveStandingsCard } from './components/LiveStandingsCard';
 import { MobileActionDock } from './components/MobileActionDock';
 import { GameModals, DrawCardEventState, RentCrisisState } from './components/GameModals';
 import { RentTransferData } from './components/ManualRentPaymentModal';
-
-// Engine & Data
-import { TradeOffer, applyTradeOffer } from './engine/trade';
-import { LUXURY_BOARD_TILES } from './data/luxuryProperties';
 
 function GameContent() {
   const {
@@ -94,42 +84,7 @@ function GameContent() {
   const [isMoving, setIsMoving] = useState<boolean>(false);
   const moveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [lastRoll, setLastRoll] = useState<{ d1: number; d2: number; total: number } | null>(null);
-  const [diceRollAnimation, setDiceRollAnimation] = useState<{
-    player: Player;
-    d1: number;
-    d2: number;
-    total: number;
-  } | null>(null);
-
-  // Helper to record / update D3.js corruption history snapshot
-  const _recordCorruptionSnapshot = (targetPlayers: Player[], roundNumber: number) => {
-    setCorruptionHistory(prev => {
-      const existingIndex = prev.findIndex(p => p.round === roundNumber);
-      const newPoint: PlayerCorruptionHistoryPoint = {
-        round: roundNumber,
-        label: `P${roundNumber}`,
-        fullPeriod: `Putaran ${roundNumber} · Siklus Anggaran Aktif`,
-        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        playersData: targetPlayers.map(p => ({
-          playerId: p.id,
-          playerName: p.name,
-          playerColor: p.color,
-          playerAvatar: p.avatar,
-          kpkSuspicionLevel: p.kpkSuspicionLevel,
-          totalCorruptionGains: p.stats.totalCorruptionGains,
-          cash: p.cash,
-          isInCorruptionRoute: p.isInCorruptionRoute,
-          inJail: p.inJail
-        }))
-      };
-      if (existingIndex >= 0) {
-        const copy = [...prev];
-        copy[existingIndex] = newPoint;
-        return copy;
-      }
-      return [...prev, newPoint];
-    });
-  };
+  const [diceRollAnimation, setDiceRollAnimation] = useState<DiceRollAnimationState | null>(null);
 
   // Modals & Panels
   const [selectedTile, setSelectedTile] = useState<BoardTile | null>(null);
@@ -138,16 +93,8 @@ function GameContent() {
   const [showCorruptionAudit, setShowCorruptionAudit] = useState<boolean>(false);
   const [showMoneyLaundering, setShowMoneyLaundering] = useState<boolean>(false);
   const [showKpkBribe, setShowKpkBribe] = useState<boolean>(false);
-  const [activeDrawCardEvent, setActiveDrawCardEvent] = useState<{
-    type: 'MUSIBAH' | 'TAKDIR';
-    cardsPool: EventOutcomeCard[];
-    targetPlayer: Player;
-  } | null>(null);
-  const activeDrawCardEventRef = useRef<{
-    type: 'MUSIBAH' | 'TAKDIR';
-    cardsPool: EventOutcomeCard[];
-    targetPlayer: Player;
-  } | null>(null);
+  const [activeDrawCardEvent, setActiveDrawCardEvent] = useState<DrawCardEventState | null>(null);
+  const activeDrawCardEventRef = useRef<DrawCardEventState | null>(null);
   const aiEndTurnTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showParliament, setShowParliament] = useState<boolean>(false);
   const [currentNews, setCurrentNews] = useState<BreakingNewsEvent | null>(null);
@@ -156,45 +103,15 @@ function GameContent() {
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(false);
 
   // Rent / Financial Debt Crisis & Asset Liquidation State
-  const [rentCrisis, setRentCrisis] = useState<{
-    crisisType?: 'RENT' | 'EVENT_LOSS' | 'TILE_BILL' | 'BIROKRASI' | 'PSYCHOLOGIST' | 'KPK_BRIBE' | 'DEBT';
-    payer: Player;
-    owner?: Player;
-    tile?: BoardTile;
-    rentCost?: number;
-    amountDue?: number;
-    title?: string;
-    subtitle?: string;
-    description?: string;
-    recipientName?: string;
-    recipientAvatar?: string;
-    recipientColor?: string;
-    causeDesc?: string;
-    onPaySuccess?: (updatedPayer: Player) => void;
-  } | null>(null);
+  const [rentCrisis, setRentCrisis] = useState<RentCrisisState | null>(null);
 
   // Manual Rent Payment Animation Modal State
   const [manualRentData, setManualRentData] = useState<RentTransferData | null>(null);
 
   // Survival Notifications
-  const [psychologistNotice, setPsychologistNotice] = useState<{
-    player: Player;
-    fee: number;
-    oldStress: number;
-    newStress: number;
-  } | null>(null);
-  const [eliminationNotice, setEliminationNotice] = useState<{
-    player: Player;
-    cause: string;
-    remainingCount: number;
-  } | null>(null);
-  const [monthNotice, setMonthNotice] = useState<{
-    monthName: string;
-    monthIndex: number;
-    year: number;
-    round: number;
-    seasonalEvent?: SeasonalEvent;
-  } | null>(null);
+  const [psychologistNotice, setPsychologistNotice] = useState<PsychologistNoticeState | null>(null);
+  const [eliminationNotice, setEliminationNotice] = useState<EliminationNoticeState | null>(null);
+  const [monthNotice, setMonthNotice] = useState<MonthNoticeState | null>(null);
 
   // Logs - Full scrollable history
 
@@ -274,180 +191,48 @@ function GameContent() {
     addLog
   });
 
-  // Eksekusi negosiasi barter properti antar pemain
-  const handleExecuteTrade = (offer: TradeOffer) => {
-    const { players: nextPlayers, perimeterTiles: nextTiles } = applyTradeOffer(offer, players, perimeterTiles);
-    setPlayers(() => nextPlayers);
-    setPerimeterTiles(() => nextTiles);
-    const proposer = players.find(p => p.id === offer.proposerId);
-    const target = players.find(p => p.id === offer.targetId);
-    addLog(`💼 DEAL BARTER! ${proposer?.name ?? 'Pemain'} & ${target?.name ?? 'Pemain'} menyelesaikan kesepakatan properti.`, 'CASH', offer.proposerId);
-    setShowTradeModal(false);
-    soundManager.playVictory();
-  };
-
-  // Initialize game from Setup Modal (Survival or Fast Mode)
-  const handleStartGame = (configuredPlayers: Player[], selectedMode: GameMode = gameMode) => {
-    resetPersistenceForNewGame();
-    dispatch({ type: 'INIT_GAME', players: configuredPlayers, gameMode: selectedMode });
-    setHasRolled(false);
-    setIsRolling(false);
-    setIsMoving(false);
-    if (moveTimerRef.current) {
-      clearTimeout(moveTimerRef.current);
-      moveTimerRef.current = null;
-    }
-    setLastRoll(null);
-    setDiceRollAnimation(null);
-
-    // Clear all lingering notices, alerts, and modal states
-    setEliminationNotice(null);
-    setPsychologistNotice(null);
-    setMonthNotice(null);
-    setRentCrisis(null);
-    setActiveDilemmaCard(null);
-    setActiveDrawCardEvent(null);
-    setShowCorruptionGate(false);
-    setShowCorruptionAudit(false);
-    setShowKpkBribe(false);
-    setShowParliament(false);
-    setShowLogsModal(false);
-    setIsStatsOpen(false);
-    setSelectedTile(null);
-    setCurrentNews(null);
-
-    soundManager.playVictory();
-    addLog(
-      selectedMode === 'FAST'
-        ? `Mode Cepat (15 Putaran) dimulai dengan ${configuredPlayers.length} pemain! Kekayaan bersih tertinggi di akhir Putaran #15 menang!`
-        : `Pertarungan Survival WNI dimulai dengan ${configuredPlayers.length} pemain! Kemenangan sejati adalah siapa yang mampu bertahan hidup paling lama!`,
-      'SYSTEM'
-    );
-  };
-
-  // Handler to start a new round / reset game via Setup Modal
-  const handleRestartNewRound = () => {
-    setIsGameOver(false);
-    setGameOverReason('');
-    setIsRolling(false);
-    setIsMoving(false);
-    if (moveTimerRef.current) {
-      clearTimeout(moveTimerRef.current);
-      moveTimerRef.current = null;
-    }
-    setDiceRollAnimation(null);
-    setHasRolled(false);
-    setLastRoll(null);
-    setPerimeterTiles(PERIMETER_TILES.map(t => ({ ...t, ownerId: null, level: 1 })));
-    setCorruptionTiles(CORRUPTION_ROUTE_TILES.map(t => ({ ...t })));
-
-    // Clear all lingering notices and overlays
-    setEliminationNotice(null);
-    setPsychologistNotice(null);
-    setMonthNotice(null);
-    setRentCrisis(null);
-    setActiveDilemmaCard(null);
-    setActiveDrawCardEvent(null);
-    setShowCorruptionGate(false);
-    setShowCorruptionAudit(false);
-    setShowKpkBribe(false);
-    setShowParliament(false);
-    setShowLogsModal(false);
-    setIsStatsOpen(false);
-    setSelectedTile(null);
-
-    // Open setup modal
-    setIsSetupOpen(true);
-  };
-
-  // Quick restart with the same players reinitialized to archetype starting stats
-  const handleQuickRestart = () => {
-    setIsGameOver(false);
-    setGameOverReason('');
-
-    const reinitializedPlayers: Player[] = players.map((p, idx) => {
-      const arch = CHARACTER_ARCHETYPES.find(a => a.id === p.archetypeId) || CHARACTER_ARCHETYPES[idx % CHARACTER_ARCHETYPES.length];
-      return {
-        ...p,
-        position: 0,
-        cash: arch.startingCash,
-        stress: arch.startingStress,
-        politicalInfluence: arch.startingInfluence,
-        ownedProperties: [],
-        inJail: false,
-        jailTurnsLeft: 0,
-        isInCorruptionRoute: false,
-        kpkSuspicionLevel: 10,
-        isBankrupt: false,
-        specialCards: [],
-        konohaBuffs: [],
-        stats: {
-          totalRentEarned: 0,
-          totalRentPaid: 0,
-          totalCorruptionGains: 0,
-          cardsDrawn: 0,
-          timesInJail: 0
-        }
-      };
-    });
-
-    handleStartGame(reinitializedPlayers);
-  };
-
-  // Bankruptcy & Elimination Handler
-  const handlePlayerBankruptcy = (player: Player, cause: string) => {
-    soundManager.playBuzzer();
-
-    setPlayers(prev => prev.map(p => {
-      if (p.id !== player.id) return p;
-      return {
-        ...p,
-        isBankrupt: true,
-        cash: 0,
-        ownedProperties: []
-      };
-    }));
-
-    // Release all properties back to the open market
-    setPerimeterTiles(prev => prev.map(t => player.ownedProperties.includes(t.id) ? { ...t, ownerId: null, level: 1 } : t));
-
-    addLog(`🚨 KEBANGKRUTAN TOTAL! ${player.name} gugur akibat: ${cause}. Seluruh aset disita & dilelang kembali ke pasar!`, 'DANGER', player.id);
-
-    // Calculate survivors and show elimination banner
-    setTimeout(() => {
-      setPlayers(currentPlayers => {
-        const remaining = currentPlayers.filter(p => !p.isBankrupt);
-        setEliminationNotice({
-          player,
-          cause,
-          remainingCount: remaining.length
-        });
-
-        if (remaining.length <= 1) {
-          const survivor = remaining[0] || player;
-          setIsGameOver(true);
-          setGameOverReason(`Kemenangan Sejati! ${survivor.name} adalah satu-satunya penyintas yang berhasil bertahan hidup paling lama saat seluruh lawan tersingkir!`);
-        } else {
-          // If the bankrupt player was currently active, pass turn to next alive player
-          setActivePlayerIndex(currentIdx => {
-            if (currentPlayers[currentIdx]?.isBankrupt) {
-              let nextAlive = (currentIdx + 1) % currentPlayers.length;
-              let count = 0;
-              while (currentPlayers[nextAlive]?.isBankrupt && count < currentPlayers.length) {
-                nextAlive = (nextAlive + 1) % currentPlayers.length;
-                count++;
-              }
-              setHasRolled(false);
-              setLastRoll(null);
-              return nextAlive;
-            }
-            return currentIdx;
-          });
-        }
-        return currentPlayers;
-      });
-    }, 400);
-  };
+  const {
+    handleExecuteTrade,
+    handleStartGame,
+    handleRestartNewRound,
+    handleQuickRestart,
+    handlePlayerBankruptcy,
+  } = useGameLifecycle({
+    players,
+    perimeterTiles,
+    gameMode,
+    moveTimerRef,
+    dispatch,
+    resetPersistenceForNewGame,
+    setPlayers,
+    setPerimeterTiles,
+    setCorruptionTiles,
+    setActivePlayerIndex,
+    setIsSetupOpen,
+    setIsGameOver,
+    setGameOverReason,
+    setHasRolled,
+    setIsRolling,
+    setIsMoving,
+    setLastRoll,
+    setDiceRollAnimation,
+    setShowTradeModal,
+    setEliminationNotice,
+    setPsychologistNotice,
+    setMonthNotice,
+    setRentCrisis,
+    setActiveDilemmaCard,
+    setActiveDrawCardEvent,
+    setShowCorruptionGate,
+    setShowCorruptionAudit,
+    setShowKpkBribe,
+    setShowParliament,
+    setShowLogsModal,
+    setIsStatsOpen,
+    setSelectedTile,
+    setCurrentNews,
+    addLog,
+  });
 
   const {
     checkStressThreshold,
