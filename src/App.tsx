@@ -141,6 +141,10 @@ import {
   syncOnlineRoomState
 } from './engine/multiplayer';
 import { GameOverModal } from './components/GameOverModal';
+import { GameHeader } from './components/GameHeader';
+import { GameNoticesBanner } from './components/GameNoticesBanner';
+import { LiveStandingsCard } from './components/LiveStandingsCard';
+import { MobileActionDock } from './components/MobileActionDock';
 import { TileDetailModal } from './components/TileDetailModal';
 import { DrawCardModal } from './components/DrawCardModal';
 import { GameLogsModal } from './components/GameLogsModal';
@@ -3015,277 +3019,54 @@ function GameContent() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden">
-      {/* 3-Zone Top Bar Contract */}
-      <header className="flex items-center justify-between gap-3 sm:gap-8 px-3 sm:px-8 py-2.5 sm:py-3.5 border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-40 backdrop-blur-md">
-        {/* Zone 1: Single text wordmark */}
-        <div className="flex items-center gap-2 whitespace-nowrap shrink-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500 flex items-center justify-center text-slate-950 font-black text-xs sm:text-sm shadow">
-            Rp
-          </div>
-          <span className="text-sm sm:text-lg font-black tracking-tight text-white">
-            MONOPOLI WNI
-          </span>
-        </div>
-
-        {/* Zone 2: Clean single-line navigation / status */}
-        <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-400">
-          <button 
-            onClick={() => setIsStatsOpen(true)}
-            className="hover:text-amber-400 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5"
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Peringkat & Net Worth</span>
-          </button>
-          <div className="text-slate-400 whitespace-nowrap shrink-0">
-            Tahun {macro.year} · Bulan {macro.monthIndex} ({MONTH_NAMES[(macro.monthIndex - 1) % 12]}) · Mgg {macro.weekIndex}/4
-          </div>
-          <div className="text-emerald-400 font-bold whitespace-nowrap shrink-0 flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{aliveCount}/{players.length} Penyintas Hidup</span>
-          </div>
-        </nav>
-
-        {/* Zone 3: Primary action & controls */}
-        <div className="flex items-center gap-2 shrink-0 overflow-x-auto max-w-[60vw] sm:max-w-none">
-          {gameMode === 'FAST' && (
-            <span className="hidden lg:inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-mono font-bold">
-              Cepat P{Math.min(cycleRound, FAST_MODE_MAX_ROUNDS)}/{FAST_MODE_MAX_ROUNDS}
-            </span>
-          )}
-          {onlineRoomCode ? (
-            <button
-              onClick={() => void handleLeaveOnlineRoom()}
-              title="Sedang terhubung di Room Online (klik untuk keluar)"
-              className="min-h-[40px] py-2 px-2.5 text-[11px] font-mono font-bold bg-sky-500/15 border border-sky-500/50 text-sky-300 hover:bg-rose-950/60 hover:border-rose-500/60 hover:text-rose-200 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>Room {onlineRoomCode}</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowOnlineLobby(true)}
-              title="Buat atau Gabung Lobby Multiplayer Online"
-              className="min-h-[40px] py-2 px-2.5 text-xs font-bold text-slate-300 hover:text-sky-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <Globe className="w-4 h-4 text-sky-400" />
-              <span className="hidden xl:inline">Lobby Online</span>
-            </button>
-          )}
-          <button
-            onClick={() => setShowQuickGuide(true)}
-            title="Panduan Singkat Bermain Monopoli WNI"
-            className="min-h-[40px] py-2 px-2.5 text-xs font-bold text-slate-300 hover:text-amber-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <HelpCircle className="w-4 h-4 text-amber-400" />
-            <span className="hidden xl:inline">Panduan</span>
-          </button>
-          {!isSetupOpen && !isGameOver && activePlayer && !activePlayer.isBankrupt && (
-            <button
-              onClick={() => setShowTradeModal(true)}
-              title="Buka Meja Negosiasi & Barter Properti"
-              className="min-h-[40px] py-2 px-2.5 text-xs font-bold text-slate-300 hover:text-emerald-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <ArrowLeftRight className="w-4 h-4 text-emerald-400" />
-              <span className="hidden xl:inline">Barter</span>
-            </button>
-          )}
-          {!isSetupOpen && !isGameOver && (
-            <button
-              onClick={() => void handleSaveToCloud()}
-              disabled={cloudSaveStatus === 'saving'}
-              title="Simpan progres permainan ke Cloud Database (MongoDB)"
-              className={`min-h-[40px] py-2 px-2.5 text-xs font-bold rounded-xl border transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
-                cloudSaveStatus === 'saved'
-                  ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300'
-                  : cloudSaveStatus === 'error'
-                  ? 'bg-rose-950/70 border-rose-500/60 text-rose-300'
-                  : 'text-slate-300 hover:text-sky-300 bg-slate-900 hover:bg-slate-800 border-slate-800'
-              }`}
-            >
-              <Cloud className="w-4 h-4 text-sky-400" />
-              <span className="hidden xl:inline">
-                {cloudSaveStatus === 'saving'
-                  ? 'Menyimpan...'
-                  : cloudSaveStatus === 'saved'
-                  ? 'Tersimpan'
-                  : cloudSaveStatus === 'error'
-                  ? 'Offline'
-                  : 'Simpan Cloud'}
-              </span>
-            </button>
-          )}
-          <button
-            onClick={() => setGameSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 4 : 1))}
-            title="Ubah Kecepatan Giliran AI (1x / 2x / Kilat)"
-            className={`min-h-[40px] py-2 px-2.5 sm:px-3 text-xs font-bold rounded-xl border transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
-              gameSpeed > 1
-                ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
-                : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'
-            }`}
-          >
-            <Zap className={`w-3.5 h-3.5 ${gameSpeed > 1 ? 'text-amber-400' : 'text-slate-400'}`} />
-            <span className="text-[11px] font-mono font-bold">
-              {gameSpeed === 4 ? 'Kilat' : `${gameSpeed}x`}
-            </span>
-          </button>
-
-          <button
-            onClick={() => {
-              const enabled = soundManager.toggle();
-              setIsSoundMuted(!enabled);
-            }}
-            title={isSoundMuted ? 'Nyalakan Audio & Ambien Makro' : `Audio & Ambien Aktif: ${soundManager.getAmbientDescription()}`}
-            className={`min-h-[40px] px-2.5 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
-              isSoundMuted 
-                ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200' 
-                : 'bg-slate-900/90 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-            }`}
-          >
-            {isSoundMuted ? (
-              <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
-            ) : (
-              <Volume2 className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
-            )}
-            <span className="text-[11px] font-mono hidden sm:inline font-bold">
-              {isSoundMuted ? 'Bisu' : 'Ambien On'}
-            </span>
-          </button>
-
-          <button
-            onClick={handleRestartNewRound}
-            title="Mulai Babak Baru / Reset Permainan"
-            className="min-h-[40px] py-2 px-3 text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Babak Baru</span>
-          </button>
-
-          <button
-            onClick={() => setShowLogsModal(true)}
-            className="min-h-[40px] py-2 px-3 sm:px-3.5 text-xs font-bold text-amber-300 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-            title="Buka Catatan Riwayat Sejarah & Logbook Nasional"
-          >
-            <History className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Riwayat Logbook</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono">
-              {logs.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setIsStatsOpen(true)}
-            className="min-h-[40px] py-2 px-3 sm:px-3.5 text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Statistik Pemain</span>
-            <span className="sm:hidden">Statistik</span>
-          </button>
-        </div>
-      </header>
+      <GameHeader
+        macro={macro}
+        monthName={MONTH_NAMES[(macro.monthIndex - 1) % 12]}
+        aliveCount={aliveCount}
+        totalPlayers={players.length}
+        gameMode={gameMode}
+        cycleRound={cycleRound}
+        onlineRoomCode={onlineRoomCode}
+        isSetupOpen={isSetupOpen}
+        isGameOver={isGameOver}
+        canTrade={Boolean(activePlayer && !activePlayer.isBankrupt)}
+        cloudSaveStatus={cloudSaveStatus}
+        gameSpeed={gameSpeed}
+        isSoundMuted={isSoundMuted}
+        ambientDescription={soundManager.getAmbientDescription()}
+        logsCount={logs.length}
+        onOpenStats={() => setIsStatsOpen(true)}
+        onOpenOnlineLobby={() => setShowOnlineLobby(true)}
+        onLeaveOnlineRoom={() => void handleLeaveOnlineRoom()}
+        onOpenGuide={() => setShowQuickGuide(true)}
+        onOpenTrade={() => setShowTradeModal(true)}
+        onSaveToCloud={() => void handleSaveToCloud()}
+        onCycleSpeed={() => setGameSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 4 : 1))}
+        onToggleSound={() => {
+          const enabled = soundManager.toggle();
+          setIsSoundMuted(!enabled);
+        }}
+        onRestartNewRound={handleRestartNewRound}
+        onOpenLogs={() => setShowLogsModal(true)}
+      />
 
       {/* Persistent Drastic Coalition Law Banner at Top of Screen */}
       <DrasticLawBanner activeLaws={activeLaws} players={players} />
 
       {/* Main Game Arena */}
       <main className="flex-1 w-full max-w-7xl mx-auto p-2 sm:p-4 md:p-6 space-y-4 pb-24 lg:pb-6">
-        {/* Dynamic Survival Notification Toasts */}
-        {eliminationNotice && (
-          <div className="bg-rose-950/90 border-2 border-rose-600 rounded-xl p-3 sm:p-4 text-white shadow-xl flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-start gap-2.5">
-              <Skull className="w-5 h-5 text-rose-400 shrink-0 mt-0.5 animate-pulse" />
-              <div>
-                <span className="text-[11px] font-mono text-rose-300 font-bold uppercase tracking-wide block">
-                  🚨 ELIMINASI PEMAIN · SURVIVAL BERLANJUT
-                </span>
-                <p className="text-xs sm:text-sm font-bold text-white mt-0.5">
-                  {eliminationNotice.player.name} telah gugur dari persaingan Konoha!
-                </p>
-                <p className="text-xs text-rose-200/90 mt-0.5">
-                  Alasan: {eliminationNotice.cause}. Tersisa <strong className="text-amber-300 font-mono">{eliminationNotice.remainingCount}</strong> penyintas yang masih bertahan hidup!
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setEliminationNotice(null)}
-              className="text-rose-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer text-sm font-bold"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {psychologistNotice && (
-          <div className="bg-sky-950/90 border-2 border-sky-500 rounded-xl p-3 sm:p-4 text-white shadow-xl flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-start gap-2.5">
-              <HeartCrack className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="text-[11px] font-mono text-sky-300 font-bold uppercase tracking-wide block">
-                  🧠 KONSULTASI PSIKOLOG DARURAT (-20% STRES)
-                </span>
-                <p className="text-xs sm:text-sm font-bold text-white mt-0.5">
-                  Stres {psychologistNotice.player.name} mencapai 100%!
-                </p>
-                <p className="text-xs text-sky-200/90 mt-0.5">
-                  Membayar <strong className="text-amber-300 font-mono">Rp 10.000.000</strong> ke psikiater. Tingkat stres berhasil diredakan 20% menjadi <strong className="text-emerald-300 font-mono">{psychologistNotice.newStress}%</strong>.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setPsychologistNotice(null)}
-              className="text-sky-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer text-sm font-bold"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {monthNotice && (
-          <div className="bg-amber-950/90 border-2 border-amber-500 rounded-xl p-3 sm:p-4 text-white shadow-xl flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-start gap-2.5">
-              <Landmark className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="text-[11px] font-mono text-amber-300 font-bold uppercase tracking-wide block">
-                  🗓️ MEMASUKI BULAN BARU (PUTARAN #{monthNotice.round})
-                </span>
-                <p className="text-xs sm:text-sm font-bold text-white mt-0.5">
-                  Bulan {monthNotice.monthName} {monthNotice.year}
-                </p>
-                <p className="text-xs text-amber-200/90 mt-0.5">
-                  Kondisi makroekonomi, tren inflasi, suku bunga BI, dan kurs Rupiah telah disesuaikan. Siapa yang mampu bertahan paling lama?
-                </p>
-                {monthNotice.seasonalEvent && (
-                  <div className="mt-2 p-2 rounded-lg bg-amber-900/60 border border-amber-400/50 text-xs">
-                    <div className="font-bold text-amber-200 flex items-center gap-1.5">
-                      <span>{monthNotice.seasonalEvent.icon}</span>
-                      <span>Event Nasional: {monthNotice.seasonalEvent.title}</span>
-                    </div>
-                    <p className="text-amber-100/90 mt-0.5">{monthNotice.seasonalEvent.description}</p>
-                    <p className="text-emerald-300 font-semibold mt-1">Dampak: {monthNotice.seasonalEvent.effectSummary}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={() => setMonthNotice(null)}
-              className="text-amber-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer text-sm font-bold"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* Online Turn Waiting Banner */}
-        {onlineRoomCode && activePlayer && activePlayer.id !== clientId && !isGameOver && (
-          <div className="bg-sky-950/85 border border-sky-500/60 rounded-xl px-4 py-2.5 text-xs text-sky-100 flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 font-semibold">
-              <Globe className="w-4 h-4 text-sky-400 animate-pulse shrink-0" />
-              <span>
-                Mode Online (Room <strong className="font-mono">{onlineRoomCode}</strong>): Menunggu giliran{' '}
-                <strong className="text-amber-300">{activePlayer.name}</strong>...
-              </span>
-            </span>
-          </div>
-        )}
+        <GameNoticesBanner
+          eliminationNotice={eliminationNotice}
+          onDismissElimination={() => setEliminationNotice(null)}
+          psychologistNotice={psychologistNotice}
+          onDismissPsychologist={() => setPsychologistNotice(null)}
+          monthNotice={monthNotice}
+          onDismissMonth={() => setMonthNotice(null)}
+          onlineRoomCode={onlineRoomCode}
+          activePlayer={activePlayer}
+          clientId={clientId}
+          isGameOver={isGameOver}
+        />
 
         {/* Macroeconomic Dashboard Strip */}
         <MacroIndicator 
@@ -3341,221 +3122,34 @@ function GameContent() {
               currentRound={cycleRound}
             />
 
-            {/* Quick Live Standings Card */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 shadow-lg">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2.5">
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <BarChart3 className="w-4 h-4 text-amber-400" />
-                  Status Penyintas ({aliveCount}/{players.length} Bertahan)
-                </span>
-                <button
-                  onClick={() => setIsStatsOpen(true)}
-                  className="text-[11px] text-slate-400 hover:text-white transition-colors"
-                >
-                  Detail →
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {players.map((p, idx) => {
-                  const isCurrent = idx === activePlayerIndex;
-                  const playerTag = p.id.startsWith('player_') ? `P${p.id.replace('player_', '')}` : `P${idx + 1}`;
-                  return (
-                    <div
-                      key={p.id}
-                      style={isCurrent && !p.isBankrupt ? {
-                        borderColor: p.color,
-                        boxShadow: `0 0 16px ${p.color}35`,
-                      } : {}}
-                      className={`
-                        p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all
-                        ${p.isBankrupt ? 'bg-rose-950/20 border-rose-900/50 opacity-60' : isCurrent ? 'bg-slate-800/90 ring-1 ring-white/60' : 'bg-slate-950/60 border-slate-800/80'}
-                      `}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div 
-                          className="relative w-8 h-8 rounded-xl border flex items-center justify-center text-base shrink-0 shadow-sm"
-                          style={{ borderColor: p.color, backgroundColor: `${p.color}25` }}
-                        >
-                          {p.avatar}
-                          {isCurrent && !p.isBankrupt && (
-                            <span 
-                              className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-white animate-ping"
-                              style={{ backgroundColor: p.color }}
-                            />
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span 
-                              className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded border text-white shrink-0"
-                              style={{ backgroundColor: `${p.color}50`, borderColor: p.color }}
-                              title={`Kode Pemain: ${playerTag}`}
-                            >
-                              {playerTag}
-                            </span>
-                            <span className="font-extrabold text-white truncate">{p.name}</span>
-                            {isCurrent && !p.isBankrupt && (
-                              <span 
-                                className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded-full text-white animate-pulse flex items-center gap-1 shrink-0"
-                                style={{ backgroundColor: p.color }}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                <span>GILIRAN</span>
-                              </span>
-                            )}
-                            {p.isBankrupt ? (
-                              <span className="text-[9px] bg-rose-950 text-rose-400 px-1 py-0.2 rounded font-mono font-bold">
-                                GUGUR
-                              </span>
-                            ) : p.inJail ? (
-                              <span className="text-[9px] text-rose-400 font-mono">(Lapas)</span>
-                            ) : null}
-                          </div>
-                          {p.isBankrupt ? (
-                            <span className="text-[10px] text-slate-500">Telah Tereliminasi</span>
-                          ) : (
-                            <div className="flex items-center gap-1.5 text-[9px] font-mono mt-0.5">
-                              <span className={p.stress >= 80 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
-                                Stres {p.stress}%
-                              </span>
-                              <span className="text-slate-600">·</span>
-                              <span className="text-amber-400 font-bold">
-                                Pol {p.politicalInfluence}
-                              </span>
-                              <span className="text-slate-600">·</span>
-                              <span className={`relative inline-flex items-center gap-1 ${p.kpkSuspicionLevel > 60 ? 'text-rose-400 font-extrabold' : p.kpkSuspicionLevel > 50 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
-                                {p.kpkSuspicionLevel > 60 && (
-                                  <span className="relative flex items-center justify-center w-2.5 h-2.5">
-                                    <KPKRadarPingEffect suspicionLevel={p.kpkSuspicionLevel} size="sm" />
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping absolute" />
-                                    <span className="w-1 h-1 rounded-full bg-rose-400 relative z-10" />
-                                  </span>
-                                )}
-                                <span>KPK {p.kpkSuspicionLevel}%</span>
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span className={`font-mono font-bold block ${p.isBankrupt ? 'text-slate-500 line-through' : 'text-emerald-400'}`}>
-                          {formatRupiahShort(p.cash)}
-                        </span>
-                        <span className="text-[10px] text-slate-500">
-                          {p.ownedProperties.length} Aset
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quick Activity Ticker */}
-            <div 
-              onClick={() => setShowLogsModal(true)}
-              className="bg-slate-900/80 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-3 text-xs transition-all cursor-pointer group shadow-sm"
-              title="Klik untuk membuka Arsip Sejarah & Logbook Nasional Lengkap"
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold text-slate-400 group-hover:text-amber-400 uppercase tracking-wider flex items-center gap-1.5 transition-colors">
-                  <History className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Kabar Terkini Putaran:</span>
-                </span>
-                <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1 underline underline-offset-2">
-                  <span>Lihat Semua ({logs.length})</span>
-                </span>
-              </div>
-              <div className="text-slate-300 italic text-[11px] leading-relaxed line-clamp-3 group-hover:text-white transition-colors">
-                {logs.length > 0 ? logs[logs.length - 1].message : 'Menunggu kocokan dadu pertama...'}
-              </div>
-            </div>
+            <LiveStandingsCard
+              players={players}
+              activePlayerIndex={activePlayerIndex}
+              aliveCount={aliveCount}
+              logs={logs}
+              onOpenStats={() => setIsStatsOpen(true)}
+              onOpenLogs={() => setShowLogsModal(true)}
+            />
           </div>
         </div>
       </main>
 
       {/* Floating Mobile Thumb Dock (Fixed Bottom Action Bar for Mobile Touch) */}
       {activePlayer && !activePlayer.isBankrupt && !isSetupOpen && !isGameOver && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-950/95 border-t border-slate-800 p-2.5 backdrop-blur-md shadow-2xl flex items-center justify-between gap-2.5">
-          {/* Left: Active Player Quick Info */}
-          <div 
-            onClick={() => setIsStatsOpen(true)}
-            className="flex items-center gap-2 cursor-pointer shrink-0"
-          >
-            <div 
-              className="w-9 h-9 rounded-xl border flex items-center justify-center text-sm shadow"
-              style={{ borderColor: activePlayer.color, backgroundColor: `${activePlayer.color}20` }}
-            >
-              {activePlayer.avatar}
-            </div>
-            <div>
-              <span className="text-xs font-bold text-white block leading-tight truncate max-w-[85px]">
-                {activePlayer.name}
-              </span>
-              <span className="text-[11px] font-mono font-extrabold text-emerald-400">
-                {formatRupiahShort(activePlayer.cash)}
-              </span>
-            </div>
-          </div>
-
-          {/* Center: Action Buttons */}
-          <div className="flex items-center gap-1.5 flex-1 justify-end">
-            {!hasRolled && !activePlayer.inJail ? (
-              <button
-                onClick={() => {
-                  if (activePlayer.isAi) return;
-                  const d1 = Math.floor(Math.random() * 6) + 1;
-                  const d2 = Math.floor(Math.random() * 6) + 1;
-                  handleRollDice(d1, d2, d1 + d2);
-                }}
-                disabled={isRolling || isMoving || activePlayer.isAi}
-                className="min-h-[44px] flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span>{activePlayer.isAi ? `🤖 Giliran ${activePlayer.name}...` : isRolling ? 'Mengocok...' : isMoving ? 'Melangkah...' : 'Kocok Dadu'}</span>
-              </button>
-            ) : hasRolled ? (
-              <>
-                {currentLandingTile.actionType === 'PROPERTY' && !currentLandingTile.ownerId && activePlayer.cash >= Math.round((currentLandingTile.price || 0) * (1 + macro.inflationRate / 100)) && !activePlayer.isAi && (
-                  <button
-                    onClick={handleBuyProperty}
-                    className="min-h-[44px] py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
-                  >
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>Beli Surat Tanah ({formatRupiahShort(Math.round((currentLandingTile.price || 0) * (1 + macro.inflationRate / 100)))})</span>
-                  </button>
-                )}
-
-                <button
-                  onClick={handleEndTurn}
-                  disabled={activePlayer.isAi}
-                  className="min-h-[44px] flex-1 py-2 px-3 bg-white text-slate-950 text-xs font-black rounded-xl shadow-md flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <span>{activePlayer.isAi ? `Giliran ${activePlayer.name}...` : 'Akhiri'}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </>
-            ) : activePlayer.inJail && !activePlayer.isAi ? (
-              <button
-                onClick={handlePayJailBribe}
-                className="min-h-[44px] flex-1 py-2 px-3 bg-rose-900 border border-rose-700 text-rose-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1"
-              >
-                <span>Suap Sipir Rp 20 Jt</span>
-              </button>
-            ) : null}
-
-            {/* Quick Stats Trigger */}
-            <button
-              onClick={() => setIsStatsOpen(true)}
-              className="min-h-[44px] min-w-[44px] p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center text-amber-400 transition-colors"
-              title="Buka Statistik Pemain"
-            >
-              <BarChart3 className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        <MobileActionDock
+          activePlayer={activePlayer}
+          currentLandingTile={currentLandingTile}
+          macro={macro}
+          hasRolled={hasRolled}
+          isRolling={isRolling}
+          isMoving={isMoving}
+          isOnlineTurnLocked={Boolean(onlineRoomCode && activePlayer.id !== clientId)}
+          onRoll={handleRollDice}
+          onBuyProperty={handleBuyProperty}
+          onEndTurn={handleEndTurn}
+          onPayJailBribe={handlePayJailBribe}
+          onOpenStats={() => setIsStatsOpen(true)}
+        />
       )}
 
       {/* MODALS */}
