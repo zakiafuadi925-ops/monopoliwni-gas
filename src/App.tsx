@@ -48,215 +48,35 @@ import {
   findWealthiestRivalTarget
 } from './engine/politics';
 import { GameProvider, useGame } from './context/GameContext';
-
-const _INITIAL_MACRO_HISTORY: MacroHistoryPoint[] = [
-  {
-    round: 0,
-    label: "Q3 '25",
-    fullPeriod: "Kuartal 3 2025 (Historis Pra-Game)",
-    inflationRate: 4.2,
-    usdIdrRate: 15950,
-    biRate: 6.0,
-    trend: 'STABLE',
-    note: 'Stabilitas Moneter Awal'
-  },
-  {
-    round: 0,
-    label: "Q4 '25",
-    fullPeriod: "Kuartal 4 2025 (Historis Pra-Game)",
-    inflationRate: 4.8,
-    usdIdrRate: 16180,
-    biRate: 6.0,
-    trend: 'RISING',
-    note: 'Peningkatan Belanja Konsumsi'
-  },
-  {
-    round: 1,
-    label: 'P1',
-    fullPeriod: 'Putaran 1 · Jan 2026 (W1)',
-    inflationRate: 5.2,
-    usdIdrRate: 16350,
-    biRate: 6.25,
-    trend: 'STABLE',
-    note: 'Awal Permainan'
-  }
-];
-
-const _createInitialCorruptionHistory = (playersList: Player[]): PlayerCorruptionHistoryPoint[] => [
-  {
-    round: 0,
-    label: 'P0',
-    fullPeriod: 'Pra-Game (Siklus Awal APBD)',
-    playersData: playersList.map(p => ({
-      playerId: p.id,
-      playerName: p.name,
-      playerColor: p.color,
-      playerAvatar: p.avatar,
-      kpkSuspicionLevel: 10,
-      totalCorruptionGains: 0,
-      cash: p.cash
-    }))
-  },
-  {
-    round: 1,
-    label: 'P1',
-    fullPeriod: 'Putaran 1 · Awal Tahun Anggaran 2026',
-    playersData: playersList.map(p => ({
-      playerId: p.id,
-      playerName: p.name,
-      playerColor: p.color,
-      playerAvatar: p.avatar,
-      kpkSuspicionLevel: p.kpkSuspicionLevel,
-      totalCorruptionGains: p.stats.totalCorruptionGains,
-      cash: p.cash,
-      isInCorruptionRoute: p.isInCorruptionRoute,
-      inJail: p.inJail
-    }))
-  }
-];
+import { BANNER_IMAGE, CREST_IMAGE, MONTH_NAMES } from './constants/gameAssets';
 
 // Components
 import { Board } from './components/Board';
 import { MacroIndicator } from './components/MacroIndicator';
 import { CorruptionD3AreaChart } from './components/CorruptionD3AreaChart';
 import { PlayerHUD } from './components/PlayerHUD';
-import { CardModal } from './components/CardModal';
-import { CorruptionGateModal, CorruptionAuditModal, KPKBribeModal } from './components/CorruptionModal';
-import { ParliamentModal } from './components/ParliamentModal';
 import { DrasticLawBanner } from './components/DrasticLawBanner';
-import { BreakingNewsBanner } from './components/BreakingNewsBanner';
-import { PlayerStatsDrawer } from './components/PlayerStatsDrawer';
-import { SetupGameModal } from './components/SetupGameModal';
-import { QuickGuideModal } from './components/QuickGuideModal';
-import { TradeModal } from './components/TradeModal';
+import { GameHeader } from './components/GameHeader';
+import { GameNoticesBanner } from './components/GameNoticesBanner';
+import { LiveStandingsCard } from './components/LiveStandingsCard';
+import { MobileActionDock } from './components/MobileActionDock';
+import { GameModals, DrawCardEventState, RentCrisisState } from './components/GameModals';
+import { RentTransferData } from './components/ManualRentPaymentModal';
+
+// Engine & Data
 import { TradeOffer, applyTradeOffer } from './engine/trade';
 import { applySeasonalEvent, SeasonalEvent } from './engine/seasonalEvents';
 import { buildNarratorContext, fetchDynamicBreakingNews } from './engine/narrator';
 import { saveGameToCloud } from './engine/cloudApi';
-import { MultiplayerLobbyModal } from './components/MultiplayerLobbyModal';
 import {
   getOrCreateClientId,
   leaveOnlineRoom,
   subscribeToOnlineRoom,
   syncOnlineRoomState
 } from './engine/multiplayer';
-import { GameOverModal } from './components/GameOverModal';
-import { GameHeader } from './components/GameHeader';
-import { GameNoticesBanner } from './components/GameNoticesBanner';
-import { LiveStandingsCard } from './components/LiveStandingsCard';
-import { MobileActionDock } from './components/MobileActionDock';
-import { TileDetailModal } from './components/TileDetailModal';
-import { DrawCardModal } from './components/DrawCardModal';
-import { GameLogsModal } from './components/GameLogsModal';
-import { KPKRadarPingEffect } from './components/VitalIndicators';
-import { RentCrisisModal } from './components/RentCrisisModal';
-import { ManualRentPaymentModal, RentTransferData } from './components/ManualRentPaymentModal';
-import { MoneyLaunderingModal } from './components/MoneyLaunderingModal';
 import { MUSIBAH_EVENT_CARDS, TAKDIR_EVENT_CARDS } from './data/eventCards';
 import { LUXURY_BOARD_TILES, LuxuryLaunderProperty } from './data/luxuryProperties';
 import { EventOutcomeCard, SpecialCardItem } from './types/game';
-
-// Icons
-import { 
-  BarChart3, 
-  Volume2, 
-  VolumeX, 
-  Info, 
-  RotateCcw, 
-  Zap,
-  HelpCircle, 
-  ArrowLeftRight,
-  Cloud,
-  Globe,
-  Scale, 
-  AlertTriangle,
-  Landmark,
-  Building2,
-  ArrowRight,
-  ShieldCheck,
-  HeartCrack,
-  Skull,
-  History
-} from 'lucide-react';
-
-// Image assets generated
-const BANNER_IMAGE = '/src/assets/images/wni_monopoly_banner_1791594690701.jpg';
-const CREST_IMAGE = '/src/assets/images/rute_korupsi_crest_1791594702879.jpg';
-const CARD_IMAGE = '/src/assets/images/dilema_konoha_card_1791594714825.jpg';
-
-const MONTH_NAMES = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-];
-
-const _createDefaultPlayers = (): Player[] => [
-  {
-    id: 'player_1',
-    name: 'Pemain 1',
-    archetypeId: 'bambang_umr',
-    isAi: false,
-    position: 0,
-    cash: 60_000_000,
-    stress: 10,
-    politicalInfluence: 5,
-    ownedProperties: [],
-    inJail: false,
-    jailTurnsLeft: 0,
-    isInCorruptionRoute: false,
-    kpkSuspicionLevel: 10,
-    isBankrupt: false,
-    color: '#0284c7',
-    avatar: '🛵',
-    title: 'Buruh Pabrik & Ojol Pejuang Nafkah',
-    specialCards: [],
-    konohaBuffs: [],
-    stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
-  },
-  {
-    id: 'player_2',
-    name: 'Pemain 2 (Ordal)',
-    archetypeId: 'pak_joko_asn',
-    isAi: true,
-    position: 0,
-    cash: 85_000_000,
-    stress: 5,
-    politicalInfluence: 15,
-    ownedProperties: [],
-    inJail: false,
-    jailTurnsLeft: 0,
-    isInCorruptionRoute: false,
-    kpkSuspicionLevel: 10,
-    isBankrupt: false,
-    color: '#16a34a',
-    avatar: '👔',
-    title: 'PNS Golongan III/a Santuy',
-    specialCards: [],
-    konohaBuffs: [],
-    stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
-  },
-  {
-    id: 'player_3',
-    name: 'Pemain 3 (Caleg)',
-    archetypeId: 'daud_politisi',
-    isAi: true,
-    position: 0,
-    cash: 100_000_000,
-    stress: 15,
-    politicalInfluence: 35,
-    ownedProperties: [],
-    inJail: false,
-    jailTurnsLeft: 0,
-    isInCorruptionRoute: false,
-    kpkSuspicionLevel: 10,
-    isBankrupt: false,
-    color: '#f59e0b',
-    avatar: '🏛️',
-    title: 'Caleg Muda Berdasi & Aktivis Timses',
-    specialCards: [],
-    konohaBuffs: [],
-    stats: { totalRentEarned: 0, totalRentPaid: 0, totalCorruptionGains: 0, cardsDrawn: 0, timesInJail: 0 }
-  }
-];
 
 function GameContent() {
   const {
@@ -3153,223 +2973,107 @@ function GameContent() {
       )}
 
       {/* MODALS */}
-      {/* 1. Pre-Game Setup Modal */}
-      {isSetupOpen && (
-        <SetupGameModal 
-          onStartGame={handleStartGame} 
-          bannerImage={BANNER_IMAGE} 
-          onClose={players.length > 0 && !isGameOver ? () => setIsSetupOpen(false) : undefined}
-          savedSnapshot={savedSnapshot}
-          onResumeSavedGame={handleResumeSavedGame}
-          onResumeCloudGame={handleResumeCloudGame}
-          onOpenOnlineLobby={() => setShowOnlineLobby(true)}
-        />
-      )}
-
-      <MultiplayerLobbyModal
-        isOpen={showOnlineLobby}
-        clientId={clientId}
-        onClose={() => setShowOnlineLobby(false)}
-        onEnterOnlineGame={handleEnterOnlineGame}
-      />
-
-      <QuickGuideModal
-        isOpen={showQuickGuide}
-        onClose={() => setShowQuickGuide(false)}
-      />
-
-      {/* 1b. Meja Negosiasi & Barter Properti */}
-      {showTradeModal && activePlayer && !activePlayer.isBankrupt && (
-        <TradeModal
-          isOpen={showTradeModal}
-          proposer={activePlayer}
-          players={players}
-          perimeterTiles={perimeterTiles}
-          macro={macro}
-          onExecuteTrade={handleExecuteTrade}
-          onClose={() => setShowTradeModal(false)}
-        />
-      )}
-
-      {/* 2. Dilemma & Opportunity Card Modal */}
-      {activeDilemmaCard && activePlayer && (
-        <CardModal
-          card={activeDilemmaCard}
-          activePlayer={activePlayer}
-          onChooseOption={handleChooseCardOption}
-          cardImage={CARD_IMAGE}
-        />
-      )}
-
-      {/* 3. Corruption Route Entrance Gate Modal */}
-      {showCorruptionGate && activePlayer && (
-        <CorruptionGateModal
-          player={activePlayer}
-          onEnterCorruptionRoute={() => {
-            setShowCorruptionGate(false);
-            setPlayers(prev => prev.map(p => p.id === activePlayer.id ? {
-              ...p,
-              isInCorruptionRoute: true,
-              position: 100
-            } : p));
-            addLog(`${activePlayer.name} nekat masuk Rute Korupsi! Berada di Petak #100 Pengadaan Fiktif.`, 'DANGER', activePlayer.id);
-          }}
-          onStayOnNormalPath={() => {
-            setShowCorruptionGate(false);
-            addLog(`${activePlayer.name} memilih tetap di jalur aman rakyat biasa.`, 'INFO', activePlayer.id);
-          }}
-          crestImage={CREST_IMAGE}
-        />
-      )}
-
-      {/* 4. Corruption BPK & KPK Audit Modal */}
-      {showCorruptionAudit && activePlayer && (
-        <CorruptionAuditModal
-          player={activePlayer}
-          onAuditResolve={handleCorruptionAuditResolve}
-        />
-      )}
-
-      {/* 4b. KPK Bribe Decision Modal */}
-      {showKpkBribe && activePlayer && (
-        <KPKBribeModal
-          player={activePlayer}
-          bribeAmount={65_000_000}
-          onPayBribe={handlePayKpkBribe}
-          onRefuseBribe={handleRefuseKpkBribe}
-        />
-      )}
-
-      {/* 4c. Event Musibah & Takdir 3D Draw Card & 3-Tier Dice Outcome Modal */}
-      {activeDrawCardEvent && (
-        <DrawCardModal
-          player={activeDrawCardEvent.targetPlayer}
-          eventType={activeDrawCardEvent.type}
-          cardsPool={activeDrawCardEvent.cardsPool}
-          ownedTiles={perimeterTiles.filter(t => activeDrawCardEvent.targetPlayer.ownedProperties.includes(t.id))}
-          onConfirmOutcome={handleConfirmDrawCardOutcome}
-        />
-      )}
-
-      {/* 5. DPR Senayan Parliament Modal */}
-      {showParliament && activePlayer && (
-        <ParliamentModal
-          player={activePlayer}
-          players={players}
-          onPassLaw={handlePassLaw}
-          onVetoLaw={handleVetoLaw}
-          onClose={() => setShowParliament(false)}
-        />
-      )}
-
-      {/* 5b. Money Laundering & Luxury Real Estate in Corruption Route Modal */}
-      {showMoneyLaundering && activePlayer && (
-        <MoneyLaunderingModal
-          player={activePlayer}
-          players={players}
-          perimeterTiles={perimeterTiles}
-          luxuryTiles={luxuryTiles}
-          macro={macro}
-          onLaunderBuyLuxury={handleLaunderBuyLuxury}
-          onLaunderBuyPerimeter={handleLaunderBuyPerimeter}
-          onSkipLaundering={handleSkipLaundering}
-        />
-      )}
-
-      {/* 6. Breaking News Banner Alert */}
-      {currentNews && (
-        <BreakingNewsBanner
-          currentNews={currentNews}
-          onDismiss={() => setCurrentNews(null)}
-        />
-      )}
-
-      {/* 7. Player Statistics & Transparency Drawer */}
-      <PlayerStatsDrawer
+      <GameModals
+        isSetupOpen={isSetupOpen}
+        isGameOver={isGameOver}
+        gameOverReason={gameOverReason}
+        gameMode={gameMode}
+        cycleRound={cycleRound}
         players={players}
-        tiles={[...perimeterTiles, ...corruptionTiles, ...luxuryTiles]}
+        activePlayer={activePlayer}
+        perimeterTiles={perimeterTiles}
+        corruptionTiles={corruptionTiles}
+        luxuryTiles={luxuryTiles}
         macro={macro}
         macroHistory={macroHistory}
         corruptionHistory={corruptionHistory}
-        currentRound={cycleRound}
         logs={logs}
-        isOpen={isStatsOpen}
-        onClose={() => setIsStatsOpen(false)}
-        activePlayerId={activePlayer?.id || 'player_1'}
-        onOpenFullHistory={() => {
+        savedSnapshot={savedSnapshot}
+        clientId={clientId}
+        showOnlineLobby={showOnlineLobby}
+        showQuickGuide={showQuickGuide}
+        showTradeModal={showTradeModal}
+        activeDilemmaCard={activeDilemmaCard}
+        showCorruptionGate={showCorruptionGate}
+        showCorruptionAudit={showCorruptionAudit}
+        showKpkBribe={showKpkBribe}
+        activeDrawCardEvent={activeDrawCardEvent}
+        showParliament={showParliament}
+        showMoneyLaundering={showMoneyLaundering}
+        currentNews={currentNews}
+        isStatsOpen={isStatsOpen}
+        selectedTile={selectedTile}
+        showLogsModal={showLogsModal}
+        rentCrisis={rentCrisis}
+        manualRentData={manualRentData}
+        onCloseSetup={() => setIsSetupOpen(false)}
+        onOpenOnlineLobby={() => setShowOnlineLobby(true)}
+        onCloseOnlineLobby={() => setShowOnlineLobby(false)}
+        onCloseQuickGuide={() => setShowQuickGuide(false)}
+        onCloseTradeModal={() => setShowTradeModal(false)}
+        onCloseParliament={() => setShowParliament(false)}
+        onDismissNews={() => setCurrentNews(null)}
+        onCloseStats={() => setIsStatsOpen(false)}
+        onOpenFullHistoryFromStats={() => {
           setIsStatsOpen(false);
           setShowLogsModal(true);
         }}
+        onCloseTileDetail={() => setSelectedTile(null)}
+        onCloseLogsModal={() => setShowLogsModal(false)}
+        onStartGame={handleStartGame}
+        onResumeSavedGame={handleResumeSavedGame}
+        onResumeCloudGame={handleResumeCloudGame}
+        onEnterOnlineGame={handleEnterOnlineGame}
+        onExecuteTrade={handleExecuteTrade}
+        onChooseCardOption={handleChooseCardOption}
+        onEnterCorruptionRoute={() => {
+          if (!activePlayer) return;
+          setShowCorruptionGate(false);
+          setPlayers(prev =>
+            prev.map(p =>
+              p.id === activePlayer.id
+                ? {
+                    ...p,
+                    isInCorruptionRoute: true,
+                    position: 100,
+                  }
+                : p
+            )
+          );
+          addLog(
+            `${activePlayer.name} nekat masuk Rute Korupsi! Berada di Petak #100 Pengadaan Fiktif.`,
+            'DANGER',
+            activePlayer.id
+          );
+        }}
+        onStayOnNormalPath={() => {
+          if (!activePlayer) return;
+          setShowCorruptionGate(false);
+          addLog(
+            `${activePlayer.name} memilih tetap di jalur aman rakyat biasa.`,
+            'INFO',
+            activePlayer.id
+          );
+        }}
+        onCorruptionAuditResolve={handleCorruptionAuditResolve}
+        onPayKpkBribe={handlePayKpkBribe}
+        onRefuseKpkBribe={handleRefuseKpkBribe}
+        onConfirmDrawCardOutcome={handleConfirmDrawCardOutcome}
+        onPassLaw={handlePassLaw}
+        onVetoLaw={handleVetoLaw}
+        onLaunderBuyLuxury={handleLaunderBuyLuxury}
+        onLaunderBuyPerimeter={handleLaunderBuyPerimeter}
+        onSkipLaundering={handleSkipLaundering}
+        onRestartNewRound={handleRestartNewRound}
+        onQuickRestart={handleQuickRestart}
+        onSellPropertyForRent={handleSellPropertyForRent}
+        onSellAllPropertiesForRent={handleSellAllPropertiesForRent}
+        onPayRentFromCrisis={handlePayRentFromCrisis}
+        onBankruptcyFromRentCrisis={handleBankruptcyFromRentCrisis}
+        onUseSpecialCardForRent={handleUseSpecialCardForRent}
+        onConfirmManualRentPayment={handleConfirmManualRentPayment}
+        onUseSpecialCardForManualRent={handleUseSpecialCardForManualRent}
       />
-
-      {/* 8. Tile Detail Inspector Modal */}
-      {selectedTile && (
-        <TileDetailModal
-          tile={selectedTile}
-          players={players}
-          macro={macro}
-          onClose={() => setSelectedTile(null)}
-        />
-      )}
-
-      {/* 9. Full History Logbook & National Archives Modal */}
-      <GameLogsModal
-        logs={logs}
-        players={players}
-        macro={macro}
-        isOpen={showLogsModal}
-        onClose={() => setShowLogsModal(false)}
-      />
-
-      {/* 10. Game Over & Victory Podium */}
-      {isGameOver && (
-        <GameOverModal
-          players={players}
-          tiles={[...perimeterTiles, ...corruptionTiles, ...luxuryTiles]}
-          macro={macro}
-          onRestart={handleRestartNewRound}
-          onQuickRestart={handleQuickRestart}
-          reason={gameOverReason}
-          gameMode={gameMode}
-          cycleRound={cycleRound}
-        />
-      )}
-
-      {/* 11. Rent & Financial Crisis Property Liquidation Modal */}
-      {rentCrisis && (
-        <RentCrisisModal
-          isOpen={true}
-          payer={rentCrisis.payer}
-          owner={rentCrisis.owner}
-          tile={rentCrisis.tile}
-          rentCost={rentCrisis.rentCost}
-          crisisType={rentCrisis.crisisType}
-          amountDue={rentCrisis.amountDue}
-          title={rentCrisis.title}
-          subtitle={rentCrisis.subtitle}
-          description={rentCrisis.description}
-          recipientName={rentCrisis.recipientName}
-          recipientAvatar={rentCrisis.recipientAvatar}
-          recipientColor={rentCrisis.recipientColor}
-          causeDesc={rentCrisis.causeDesc}
-          perimeterTiles={[...perimeterTiles, ...luxuryTiles]}
-          macro={macro}
-          onSellProperty={handleSellPropertyForRent}
-          onSellAllProperties={handleSellAllPropertiesForRent}
-          onPayRent={handlePayRentFromCrisis}
-          onDeclareBankruptcy={handleBankruptcyFromRentCrisis}
-          onUseSpecialCard={handleUseSpecialCardForRent}
-        />
-      )}
-
-      {/* 12. Manual Rent Payment Interactive & Animated Modal */}
-      {manualRentData && (
-        <ManualRentPaymentModal
-          data={manualRentData}
-          onConfirmPayment={handleConfirmManualRentPayment}
-          onUseSpecialCard={handleUseSpecialCardForManualRent}
-        />
-      )}
     </div>
   );
 }
