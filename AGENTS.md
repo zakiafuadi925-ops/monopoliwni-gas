@@ -34,3 +34,17 @@ Panduan teknis dan batasan kerja bagi AI coding agent maupun developer yang beke
 - Server API & multiplayer: `npm run server` (`tsx server/index.ts`)
 
 Selalu jalankan `npm run lint`, `npm test`, dan `npm run build` setelah melakukan perubahan kode.
+
+6. **Batasan Ketat Logika Murni vs. State & UI:**
+   - Kalkulasi deterministik (sewa, pajak, efek kartu, kalkulasi makroekonomi, penalti/risiko KPK, aturan giliran murni) wajib berada di `src/engine/` agar mudah diuji dengan Vitest.
+   - `src/hooks/` hanya mengelola lifecycle state, sinkronisasi efek, dan pemanggilan engine/API—bukan menumpuk rumus bisnis panjang.
+   - Jangan meletakkan logika bisnis atau fetch langsung di dalam komponen presentasi.
+
+7. **Dilarang Menulis _Slop_, _Placeholder_, atau Duplikasi:**
+   - Dilarang meninggalkan komentar `TODO`/`FIXME` kosong, fungsi stub/mock palsu di jalur produksi, atau `any` yang menutupi error tipe (`tsc --noEmit` harus bersih tanpa shortcut tipe).
+   - Sebelum membuat komponen, hook, atau helper baru, periksa dulu apakah modul yang setara sudah ada di `src/components/`, `src/hooks/`, `src/engine/`, atau `src/utils/`.
+   - Pertahankan satir ekonomi-politik yang tajam dan ringkas—hindari teks bertele-tele, klise berlebihan, atau mengubah nama/karakter domain yang sudah ada.
+
+8. **Jaga _Graceful Fallback_ Saat Backend/API Absen:**
+   - Setiap fitur yang menyentuh `server/index.ts`, `server/routes.ts`, MongoDB, atau Gemini API wajib tetap aman ketika layanan eksternal tidak tersedia atau env var belum disetel.
+   - Jangan mengekspos secret/API key ke sisi klien (`src/`).
