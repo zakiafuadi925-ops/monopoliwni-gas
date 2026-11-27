@@ -27,6 +27,7 @@ import { GameHeader } from './GameHeader';
 import { GameNoticesBanner } from './GameNoticesBanner';
 import { LiveStandingsCard } from './LiveStandingsCard';
 import { MobileActionDock } from './MobileActionDock';
+import { MobileGameWorkspace } from './MobileGameWorkspace';
 import { GameModals, DrawCardEventState, RentCrisisState } from './GameModals';
 import { RentTransferData } from './ManualRentPaymentModal';
 
@@ -512,68 +513,101 @@ export function GameContent() {
           isGameOver={isGameOver}
         />
 
-        {/* Macroeconomic Dashboard Strip */}
-        <MacroIndicator
+        {/* Mobile App Single-Screen Tabbed Workspace (zero-scroll on mobile) */}
+        <MobileGameWorkspace
+          players={players}
+          activePlayer={activePlayer}
+          activePlayerIndex={activePlayerIndex}
+          aliveCount={aliveCount}
+          perimeterTiles={perimeterTiles}
+          corruptionTiles={corruptionTiles}
+          currentLandingTile={currentLandingTile}
+          selectedTile={selectedTile}
           macro={macro}
           activeLaws={activeLaws}
           cycleRound={cycleRound}
-          aliveCount={aliveCount}
-          totalPlayers={players.length}
+          corruptionHistory={corruptionHistory}
+          logs={logs}
+          hasRolled={hasRolled}
+          isRolling={isRolling}
+          isMoving={isMoving}
+          hasRentCrisis={Boolean(rentCrisis)}
+          lastRoll={lastRoll}
+          diceRollAnimation={diceRollAnimation}
+          onSelectTile={tile => setSelectedTile(tile)}
+          onRollAnimationComplete={handleRollAnimationComplete}
+          onRollDice={handleRollDice}
+          onBuyProperty={handleBuyProperty}
+          onUpgradeProperty={handleUpgradeProperty}
+          onEndTurn={handleEndTurn}
+          onPayJailBribe={handlePayJailBribe}
+          onOpenStats={() => navigate('/statistik')}
+          onOpenLogs={() => navigate('/log')}
         />
 
-        {/* Board & HUD Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* Monopoly Board Viewport (isolated stacking context so internal z-index never bleeds over header/dock) */}
-          <div className="lg:col-span-8 flex flex-col items-center justify-center isolate relative z-0">
-            <Board
-              perimeterTiles={perimeterTiles}
-              corruptionTiles={corruptionTiles}
-              players={players}
-              activePlayerIndex={activePlayerIndex}
-              macro={macro}
-              onTileClick={tile => setSelectedTile(tile)}
-              selectedTile={selectedTile}
-              bannerImage={BANNER_IMAGE}
-              crestImage={CREST_IMAGE}
-              diceRollAnimation={diceRollAnimation}
-              onRollAnimationComplete={handleRollAnimationComplete}
-              isMoving={isMoving}
-            />
-          </div>
+        {/* Desktop Layout: Macroeconomic Strip + 12-Col Board & Sidebar */}
+        <div className="hidden lg:block space-y-4">
+          <MacroIndicator
+            macro={macro}
+            activeLaws={activeLaws}
+            cycleRound={cycleRound}
+            aliveCount={aliveCount}
+            totalPlayers={players.length}
+          />
 
-          {/* Right Sidebar: Active HUD & Quick Leaderboard */}
-          <div className="lg:col-span-4 space-y-4">
-            {activePlayer && !activePlayer.isBankrupt && (
-              <PlayerHUD
-                player={activePlayer}
-                currentTile={currentLandingTile}
-                hasRolled={hasRolled}
-                isRolling={isRolling || isMoving || !!rentCrisis}
-                lastRoll={lastRoll}
+          <div className="grid grid-cols-12 gap-4 items-start">
+            {/* Monopoly Board Viewport (isolated stacking context so internal z-index never bleeds over header/dock) */}
+            <div className="col-span-8 flex flex-col items-center justify-center isolate relative z-0">
+              <Board
+                perimeterTiles={perimeterTiles}
+                corruptionTiles={corruptionTiles}
+                players={players}
+                activePlayerIndex={activePlayerIndex}
                 macro={macro}
-                onRoll={handleRollDice}
-                onBuyProperty={handleBuyProperty}
-                onUpgradeProperty={handleUpgradeProperty}
-                onEndTurn={handleEndTurn}
-                onPayJailBribe={handlePayJailBribe}
+                onTileClick={tile => setSelectedTile(tile)}
+                selectedTile={selectedTile}
+                bannerImage={BANNER_IMAGE}
+                crestImage={CREST_IMAGE}
+                diceRollAnimation={diceRollAnimation}
+                onRollAnimationComplete={handleRollAnimationComplete}
+                isMoving={isMoving}
               />
-            )}
+            </div>
 
-            {/* Panel Visualisasi D3.js pada Sidebar: Tren Suspicion KPK & Total Gains Korupsi */}
-            <CorruptionD3AreaChart
-              players={players}
-              history={corruptionHistory}
-              currentRound={cycleRound}
-            />
+            {/* Right Sidebar: Active HUD & Quick Leaderboard */}
+            <div className="col-span-4 space-y-4">
+              {activePlayer && !activePlayer.isBankrupt && (
+                <PlayerHUD
+                  player={activePlayer}
+                  currentTile={currentLandingTile}
+                  hasRolled={hasRolled}
+                  isRolling={isRolling || isMoving || !!rentCrisis}
+                  lastRoll={lastRoll}
+                  macro={macro}
+                  onRoll={handleRollDice}
+                  onBuyProperty={handleBuyProperty}
+                  onUpgradeProperty={handleUpgradeProperty}
+                  onEndTurn={handleEndTurn}
+                  onPayJailBribe={handlePayJailBribe}
+                />
+              )}
 
-            <LiveStandingsCard
-              players={players}
-              activePlayerIndex={activePlayerIndex}
-              aliveCount={aliveCount}
-              logs={logs}
-              onOpenStats={() => navigate('/statistik')}
-              onOpenLogs={() => navigate('/log')}
-            />
+              {/* Panel Visualisasi D3.js pada Sidebar: Tren Suspicion KPK & Total Gains Korupsi */}
+              <CorruptionD3AreaChart
+                players={players}
+                history={corruptionHistory}
+                currentRound={cycleRound}
+              />
+
+              <LiveStandingsCard
+                players={players}
+                activePlayerIndex={activePlayerIndex}
+                aliveCount={aliveCount}
+                logs={logs}
+                onOpenStats={() => navigate('/statistik')}
+                onOpenLogs={() => navigate('/log')}
+              />
+            </div>
           </div>
         </div>
       </main>
@@ -590,6 +624,7 @@ export function GameContent() {
           isOnlineTurnLocked={Boolean(onlineRoomCode && activePlayer.id !== clientId)}
           onRoll={handleRollDice}
           onBuyProperty={handleBuyProperty}
+          onUpgradeProperty={handleUpgradeProperty}
           onEndTurn={handleEndTurn}
           onPayJailBribe={handlePayJailBribe}
           onOpenStats={() => navigate('/statistik')}
