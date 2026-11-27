@@ -221,16 +221,16 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
               Pengaturan Karakter & Fraksi Pemain:
             </span>
 
-            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+            <div className="space-y-2.5">
               {playerConfigs.slice(0, numPlayers).map((pCfg, idx) => {
                 const currentArch = CHARACTER_ARCHETYPES.find(a => a.id === pCfg.archetypeId)!;
 
                 return (
                   <div
                     key={idx}
-                    className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex flex-col gap-2.5 text-xs min-w-0"
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <div 
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-xl border-2 shadow shrink-0"
                         style={{ borderColor: currentArch.color, backgroundColor: `${currentArch.color}20` }}
@@ -243,7 +243,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
                           type="text"
                           value={pCfg.name}
                           onChange={e => updateConfig(idx, { name: e.target.value })}
-                          className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 font-bold text-white text-xs w-full sm:w-36 focus:outline-none focus:border-amber-400 min-h-[36px]"
+                          className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 font-bold text-white text-xs w-full focus:outline-none focus:border-amber-400 min-h-[36px]"
                           placeholder={`Pemain ${idx + 1}`}
                         />
                         <span className="text-[10px] text-slate-400 block truncate">
@@ -252,17 +252,17 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
                       {/* Human vs Bot Toggle */}
                       <button
                         onClick={() => updateConfig(idx, { isAi: !pCfg.isAi })}
-                        className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-colors cursor-pointer ${
+                        className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                           pCfg.isAi
                             ? 'bg-purple-950 text-purple-300 border-purple-800'
                             : 'bg-emerald-950 text-emerald-300 border-emerald-800'
                         }`}
                       >
-                        {pCfg.isAi ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                        {pCfg.isAi ? <Bot className="w-4 h-4 shrink-0" /> : <User className="w-4 h-4 shrink-0" />}
                         <span>{pCfg.isAi ? 'Bot AI' : 'Manusia'}</span>
                       </button>
 
@@ -271,7 +271,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
                           value={pCfg.aiDifficulty}
                           onChange={e => updateConfig(idx, { aiDifficulty: e.target.value as AiDifficulty })}
                           title="Kepribadian & Tingkat Kesulitan Bot AI"
-                          className="min-h-[44px] bg-slate-900 border border-purple-800/70 rounded-lg px-2 py-2 text-xs text-purple-200 focus:outline-none focus:border-amber-400"
+                          className="min-h-[40px] bg-slate-900 border border-purple-800/70 rounded-lg px-2 py-1.5 text-xs text-purple-200 focus:outline-none focus:border-amber-400 shrink-0"
                         >
                           <option value="SANTAI">AI: Santai</option>
                           <option value="AGRESIF">AI: Agresif</option>
@@ -283,7 +283,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
                       <select
                         value={pCfg.archetypeId}
                         onChange={e => updateConfig(idx, { archetypeId: e.target.value })}
-                        className="min-h-[44px] bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400 flex-1 sm:flex-initial"
+                        className="min-h-[40px] bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400 flex-1 min-w-[180px] max-w-full"
                       >
                         {CHARACTER_ARCHETYPES.map(arch => (
                           <option key={arch.id} value={arch.id}>

@@ -1,6 +1,10 @@
-export const BANNER_IMAGE = '/src/assets/images/wni_monopoly_banner_1791594690701.jpg';
-export const CREST_IMAGE = '/src/assets/images/rute_korupsi_crest_1791594702879.jpg';
-export const CARD_IMAGE = '/src/assets/images/dilema_konoha_card_1791594714825.jpg';
+import bannerImage from '../assets/images/wni_monopoly_banner_1791594690701.jpg';
+import crestImage from '../assets/images/rute_korupsi_crest_1791594702879.jpg';
+import cardImage from '../assets/images/dilema_konoha_card_1791594714825.jpg';
+
+export const BANNER_IMAGE = bannerImage;
+export const CREST_IMAGE = crestImage;
+export const CARD_IMAGE = cardImage;
 
 export const MONTH_NAMES = [
   'Januari',

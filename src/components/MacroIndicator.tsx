@@ -135,8 +135,8 @@ export const MacroIndicator: React.FC<MacroIndicatorProps> = ({
       )}
 
       {/* Header bar */}
-      <div className="relative z-10 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 sm:gap-2">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
           <Landmark className={`w-4 h-4 shrink-0 ${isCrisis ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`} />
           <span className={`text-xs sm:text-sm font-bold tracking-wide truncate ${isCrisis ? 'text-rose-200 animate-glitch-text' : 'text-slate-100'}`}>
             Makroekonomi & Fiskal
@@ -146,7 +146,7 @@ export const MacroIndicator: React.FC<MacroIndicatorProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="text-[11px] text-slate-400 hidden xs:block">
             Putaran: <span className="font-semibold text-amber-300 font-mono">#{cycleRound}</span>
           </div>

@@ -111,7 +111,7 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
       </div>
 
       {/* Profile & Financial Status Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-800/80">
+      <div className="flex flex-col gap-3 mb-3 pb-3 border-b border-slate-800/80">
         <div className="flex items-center gap-3 min-w-0">
           <div 
             className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shadow-xl border-2 shrink-0"
@@ -135,7 +135,7 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
                 {player.name}
               </h3>
               <span 
-                className="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0"
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full border max-w-full truncate"
                 style={{ backgroundColor: `${player.color}30`, borderColor: `${player.color}60`, color: player.color }}
               >
                 {player.title}
@@ -189,11 +189,11 @@ export const PlayerHUD: React.FC<PlayerHUDProps> = ({
         </div>
 
         {/* Cash Balance Display */}
-        <div className="sm:text-right shrink-0 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-xl">
-          <span className="text-[10px] text-slate-400 block font-medium">
+        <div className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-3 py-2 rounded-xl">
+          <span className="text-[10px] text-slate-400 font-medium">
             Kas Tunai
           </span>
-          <span className="text-base sm:text-lg font-black text-emerald-400 font-mono block">
+          <span className="text-base sm:text-lg font-black text-emerald-400 font-mono">
             {formatRupiah(player.cash)}
           </span>
         </div>

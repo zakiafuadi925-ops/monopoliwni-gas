@@ -198,7 +198,7 @@ export const Board: React.FC<BoardProps> = ({
         <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto max-w-full">
           <button
             onClick={() => setBoardViewMode('GRID')}
-            className={`min-h-[36px] px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`min-h-[34px] px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
               boardViewMode === 'GRID'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -210,7 +210,7 @@ export const Board: React.FC<BoardProps> = ({
 
           <button
             onClick={() => setBoardViewMode('ISLANDS')}
-            className={`min-h-[36px] px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`min-h-[34px] px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
               boardViewMode === 'ISLANDS'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -222,7 +222,7 @@ export const Board: React.FC<BoardProps> = ({
 
           <button
             onClick={() => setBoardViewMode('TRACK')}
-            className={`min-h-[36px] px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`min-h-[34px] px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
               boardViewMode === 'TRACK'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
