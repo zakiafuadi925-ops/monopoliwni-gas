@@ -80,7 +80,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   }, [winner, tiles, macro, cycleRound, gameMode, reason]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto">
       <div className="max-w-lg w-full bg-slate-900 border-2 border-amber-500 rounded-2xl shadow-2xl overflow-hidden text-slate-100 text-center p-6 space-y-5">
         <div className="inline-flex p-3 bg-amber-500/10 border border-amber-500/30 rounded-full mx-auto">
           <Trophy className="w-10 h-10 text-amber-400 animate-bounce" />

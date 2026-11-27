@@ -21,7 +21,7 @@ export const DrasticLawBanner: React.FC<DrasticLawBannerProps> = ({
   if (drasticLaws.length === 0) return null;
 
   return (
-    <div className="w-full bg-gradient-to-r from-red-950 via-amber-950 to-red-950 border-b-2 border-amber-500 shadow-xl text-slate-100 sticky top-[57px] sm:top-[65px] z-30 animate-in slide-in-from-top duration-300">
+    <div className="w-full bg-gradient-to-r from-red-950 via-amber-950 to-red-950 border-b-2 border-amber-500 shadow-xl text-slate-100 animate-in slide-in-from-top duration-300">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5">
         <div className="flex items-center justify-between gap-2.5">
           {/* Left: Indicator Badge & Title */}

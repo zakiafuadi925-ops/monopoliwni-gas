@@ -96,7 +96,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
   const inflationMed = macro.inflationRate >= 5;
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-700/60 shadow-lg">
+    <header className="relative bg-slate-900/95 backdrop-blur border-b border-slate-700/60 shadow-lg">
       {/* Desktop header row */}
       <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2">
         {/* Left: Branding + round info */}

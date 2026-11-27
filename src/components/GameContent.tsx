@@ -16,6 +16,7 @@ import { useCardEvents } from '../hooks/useCardEvents';
 import { useCorruptionAndJail } from '../hooks/useCorruptionAndJail';
 import { usePoliticsAndTurn, MonthNoticeState } from '../hooks/usePoliticsAndTurn';
 import { useAiAutomation } from '../hooks/useAiAutomation';
+import { useAppRouter } from '../hooks/useAppRouter';
 
 import { Board } from './Board';
 import { MacroIndicator } from './MacroIndicator';
@@ -65,9 +66,10 @@ export function GameContent() {
     setLogs,
   } = useGame();
 
-  const [showOnlineLobby, setShowOnlineLobby] = useState<boolean>(false);
-  const [showQuickGuide, setShowQuickGuide] = useState<boolean>(false);
-  const [showTradeModal, setShowTradeModal] = useState<boolean>(false);
+  const { route, navigate } = useAppRouter();
+  const [showOnlineLobby, setShowOnlineLobby] = useState<boolean>(() => route.path === '/lobby');
+  const [showQuickGuide, setShowQuickGuide] = useState<boolean>(() => route.path === '/panduan');
+  const [showTradeModal, setShowTradeModal] = useState<boolean>(() => route.path === '/dagang');
   const [gameSpeed, setGameSpeed] = useState<1 | 2 | 4>(1);
   const pace = (ms: number) => Math.max(120, Math.round(ms / gameSpeed));
 
@@ -91,8 +93,17 @@ export function GameContent() {
   const aiEndTurnTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showParliament, setShowParliament] = useState<boolean>(false);
   const [currentNews, setCurrentNews] = useState<BreakingNewsEvent | null>(null);
-  const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
-  const [showLogsModal, setShowLogsModal] = useState<boolean>(false);
+  const [isStatsOpen, setIsStatsOpen] = useState<boolean>(() => route.path === '/statistik');
+  const [showLogsModal, setShowLogsModal] = useState<boolean>(() => route.path === '/log');
+
+  // Sinkronkan perubahan URL (/lobby, /panduan, /statistik, /log, /dagang, /) ke tampilan aktif
+  useEffect(() => {
+    setShowOnlineLobby(route.path === '/lobby');
+    setShowQuickGuide(route.path === '/panduan');
+    setIsStatsOpen(route.path === '/statistik');
+    setShowLogsModal(route.path === '/log');
+    setShowTradeModal(route.path === '/dagang');
+  }, [route.path]);
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(false);
 
   // Rent / Financial Debt Crisis & Asset Liquidation State
@@ -181,7 +192,10 @@ export function GameContent() {
       setIsMoving(false);
       setLastRoll(null);
     },
-    onCloseOnlineLobby: () => setShowOnlineLobby(false),
+    onCloseOnlineLobby: () => {
+      setShowOnlineLobby(false);
+      navigate('/');
+    },
     addLog,
   });
 
@@ -447,42 +461,44 @@ export function GameContent() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden">
-      <GameHeader
-        macro={macro}
-        monthName={MONTH_NAMES[(macro.monthIndex - 1) % 12]}
-        aliveCount={aliveCount}
-        totalPlayers={players.length}
-        gameMode={gameMode}
-        cycleRound={cycleRound}
-        onlineRoomCode={onlineRoomCode}
-        isSetupOpen={isSetupOpen}
-        isGameOver={isGameOver}
-        canTrade={Boolean(activePlayer && !activePlayer.isBankrupt)}
-        cloudSaveStatus={cloudSaveStatus}
-        gameSpeed={gameSpeed}
-        isSoundMuted={isSoundMuted}
-        ambientDescription={soundManager.getAmbientDescription()}
-        logsCount={logs.length}
-        onOpenStats={() => setIsStatsOpen(true)}
-        onOpenOnlineLobby={() => setShowOnlineLobby(true)}
-        onLeaveOnlineRoom={() => void handleLeaveOnlineRoom()}
-        onOpenGuide={() => setShowQuickGuide(true)}
-        onOpenTrade={() => setShowTradeModal(true)}
-        onSaveToCloud={() => void handleSaveToCloud()}
-        onCycleSpeed={() => setGameSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 4 : 1))}
-        onToggleSound={() => {
-          const enabled = soundManager.toggle();
-          setIsSoundMuted(!enabled);
-        }}
-        onRestartNewRound={handleRestartNewRound}
-        onOpenLogs={() => setShowLogsModal(true)}
-      />
+      <div className="sticky top-0 z-40">
+        <GameHeader
+          macro={macro}
+          monthName={MONTH_NAMES[(macro.monthIndex - 1) % 12]}
+          aliveCount={aliveCount}
+          totalPlayers={players.length}
+          gameMode={gameMode}
+          cycleRound={cycleRound}
+          onlineRoomCode={onlineRoomCode}
+          isSetupOpen={isSetupOpen}
+          isGameOver={isGameOver}
+          canTrade={Boolean(activePlayer && !activePlayer.isBankrupt)}
+          cloudSaveStatus={cloudSaveStatus}
+          gameSpeed={gameSpeed}
+          isSoundMuted={isSoundMuted}
+          ambientDescription={soundManager.getAmbientDescription()}
+          logsCount={logs.length}
+          onOpenStats={() => navigate('/statistik')}
+          onOpenOnlineLobby={() => navigate('/lobby')}
+          onLeaveOnlineRoom={() => void handleLeaveOnlineRoom()}
+          onOpenGuide={() => navigate('/panduan')}
+          onOpenTrade={() => navigate('/dagang')}
+          onSaveToCloud={() => void handleSaveToCloud()}
+          onCycleSpeed={() => setGameSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 4 : 1))}
+          onToggleSound={() => {
+            const enabled = soundManager.toggle();
+            setIsSoundMuted(!enabled);
+          }}
+          onRestartNewRound={handleRestartNewRound}
+          onOpenLogs={() => navigate('/log')}
+        />
 
-      {/* Persistent Drastic Coalition Law Banner at Top of Screen */}
-      <DrasticLawBanner activeLaws={activeLaws} players={players} />
+        {/* Persistent Drastic Coalition Law Banner directly under Header */}
+        <DrasticLawBanner activeLaws={activeLaws} players={players} />
+      </div>
 
       {/* Main Game Arena */}
-      <main className="flex-1 w-full max-w-7xl mx-auto p-2 sm:p-4 md:p-6 space-y-4 pb-24 lg:pb-6">
+      <main className="flex-1 w-full max-w-7xl mx-auto p-2 sm:p-4 md:p-6 space-y-4 pb-32 lg:pb-6">
         <GameNoticesBanner
           eliminationNotice={eliminationNotice}
           onDismissElimination={() => setEliminationNotice(null)}
@@ -507,8 +523,8 @@ export function GameContent() {
 
         {/* Board & HUD Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* Monopoly Board Viewport */}
-          <div className="lg:col-span-8 flex flex-col items-center justify-center">
+          {/* Monopoly Board Viewport (isolated stacking context so internal z-index never bleeds over header/dock) */}
+          <div className="lg:col-span-8 flex flex-col items-center justify-center isolate relative z-0">
             <Board
               perimeterTiles={perimeterTiles}
               corruptionTiles={corruptionTiles}
@@ -555,8 +571,8 @@ export function GameContent() {
               activePlayerIndex={activePlayerIndex}
               aliveCount={aliveCount}
               logs={logs}
-              onOpenStats={() => setIsStatsOpen(true)}
-              onOpenLogs={() => setShowLogsModal(true)}
+              onOpenStats={() => navigate('/statistik')}
+              onOpenLogs={() => navigate('/log')}
             />
           </div>
         </div>
@@ -576,7 +592,7 @@ export function GameContent() {
           onBuyProperty={handleBuyProperty}
           onEndTurn={handleEndTurn}
           onPayJailBribe={handlePayJailBribe}
-          onOpenStats={() => setIsStatsOpen(true)}
+          onOpenStats={() => navigate('/statistik')}
         />
       )}
 
@@ -598,6 +614,7 @@ export function GameContent() {
         logs={logs}
         savedSnapshot={savedSnapshot}
         clientId={clientId}
+        initialLobbyRoomCode={route.roomCode}
         showOnlineLobby={showOnlineLobby}
         showQuickGuide={showQuickGuide}
         showTradeModal={showTradeModal}
@@ -615,19 +632,16 @@ export function GameContent() {
         rentCrisis={rentCrisis}
         manualRentData={manualRentData}
         onCloseSetup={() => setIsSetupOpen(false)}
-        onOpenOnlineLobby={() => setShowOnlineLobby(true)}
-        onCloseOnlineLobby={() => setShowOnlineLobby(false)}
-        onCloseQuickGuide={() => setShowQuickGuide(false)}
-        onCloseTradeModal={() => setShowTradeModal(false)}
+        onOpenOnlineLobby={() => navigate('/lobby')}
+        onCloseOnlineLobby={() => navigate('/')}
+        onCloseQuickGuide={() => navigate('/')}
+        onCloseTradeModal={() => navigate('/')}
         onCloseParliament={() => setShowParliament(false)}
         onDismissNews={() => setCurrentNews(null)}
-        onCloseStats={() => setIsStatsOpen(false)}
-        onOpenFullHistoryFromStats={() => {
-          setIsStatsOpen(false);
-          setShowLogsModal(true);
-        }}
+        onCloseStats={() => navigate('/')}
+        onOpenFullHistoryFromStats={() => navigate('/log')}
         onCloseTileDetail={() => setSelectedTile(null)}
-        onCloseLogsModal={() => setShowLogsModal(false)}
+        onCloseLogsModal={() => navigate('/')}
         onStartGame={handleStartGame}
         onResumeSavedGame={handleResumeSavedGame}
         onResumeCloudGame={handleResumeCloudGame}

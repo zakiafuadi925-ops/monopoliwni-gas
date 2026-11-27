@@ -77,6 +77,7 @@ interface GameModalsProps {
   // Persistence & online
   savedSnapshot: SavedGameSnapshot | null;
   clientId: string;
+  initialLobbyRoomCode?: string;
 
   // Modal visibility & active data
   showOnlineLobby: boolean;
@@ -164,6 +165,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
   logs,
   savedSnapshot,
   clientId,
+  initialLobbyRoomCode,
   showOnlineLobby,
   showQuickGuide,
   showTradeModal,
@@ -220,8 +222,8 @@ export const GameModals: React.FC<GameModalsProps> = ({
 }) => {
   return (
     <>
-      {/* 1. Pre-Game Setup Modal */}
-      {isSetupOpen && (
+      {/* 1. Pre-Game Setup Modal (hidden when routed to Lobby/Panduan/Statistik/Log so modals never stack) */}
+      {isSetupOpen && !showOnlineLobby && !showQuickGuide && !isStatsOpen && !showLogsModal && (
         <SetupGameModal
           onStartGame={onStartGame}
           bannerImage={BANNER_IMAGE}
@@ -236,6 +238,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
       <MultiplayerLobbyModal
         isOpen={showOnlineLobby}
         clientId={clientId}
+        initialRoomCode={initialLobbyRoomCode}
         onClose={onCloseOnlineLobby}
         onEnterOnlineGame={onEnterOnlineGame}
       />

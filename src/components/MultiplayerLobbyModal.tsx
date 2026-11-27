@@ -26,6 +26,7 @@ import { soundManager } from '../utils/sound';
 interface MultiplayerLobbyModalProps {
   isOpen: boolean;
   clientId: string;
+  initialRoomCode?: string;
   onClose: () => void;
   onEnterOnlineGame: (payload: {
     roomCode: string;
@@ -37,13 +38,14 @@ interface MultiplayerLobbyModalProps {
 export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
   isOpen,
   clientId,
+  initialRoomCode,
   onClose,
   onEnterOnlineGame
 }) => {
   const [playerName, setPlayerName] = useState<string>('Pemain Online');
   const [archetypeId, setArchetypeId] = useState<string>(CHARACTER_ARCHETYPES[0].id);
   const [gameMode, setGameMode] = useState<GameMode>('SURVIVAL');
-  const [joinCode, setJoinCode] = useState<string>('');
+  const [joinCode, setJoinCode] = useState<string>(initialRoomCode ?? '');
   const [room, setRoom] = useState<OnlineRoom | null>(null);
   const [openRooms, setOpenRooms] = useState<OnlineRoom[]>([]);
   const [serverOnline, setServerOnline] = useState<boolean>(true);
@@ -59,6 +61,12 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
     setOpenRooms(res.rooms);
     setRefreshing(false);
   }, []);
+
+  useEffect(() => {
+    if (initialRoomCode) {
+      setJoinCode(initialRoomCode);
+    }
+  }, [initialRoomCode]);
 
   useEffect(() => {
     if (!isOpen || room) return;

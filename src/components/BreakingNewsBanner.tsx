@@ -14,7 +14,7 @@ export const BreakingNewsBanner: React.FC<BreakingNewsBannerProps> = ({
   if (!currentNews) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
       <div className="max-w-md w-full bg-slate-900 border-2 border-rose-600 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
         {/* Urgent TV News Header */}
         <div className="bg-rose-700 text-white px-4 py-3 flex items-center justify-between">
