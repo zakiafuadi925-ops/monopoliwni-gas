@@ -112,7 +112,7 @@ export const RentCrisisModal: React.FC<RentCrisisModalProps> = ({
   const targetName = owner?.name || recipientName || 'Kas Negara & Instansi Terkait';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
       <div 
         className="w-full max-w-lg bg-slate-900 border-2 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         style={{
@@ -274,7 +274,7 @@ export const RentCrisisModal: React.FC<RentCrisisModalProps> = ({
                 <span>Anda tidak memiliki Surat Tanah tersisa yang dapat dijual.</span>
               </div>
             ) : (
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2">
                 {propertySales.map(({ tile: prop, sellValue }) => (
                   <div 
                     key={prop.id}

@@ -336,7 +336,7 @@ export const MultiplayerLobbyModal: React.FC<MultiplayerLobbyModalProps> = ({
                       </button>
                     </div>
                     {openRooms.length > 0 ? (
-                      <div className="space-y-1 max-h-24 overflow-y-auto">
+                      <div className="space-y-1">
                         {openRooms.map(r => (
                           <div
                             key={r.code}

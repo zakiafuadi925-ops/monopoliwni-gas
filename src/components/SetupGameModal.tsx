@@ -122,7 +122,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/90 backdrop-blur-md">
       <div className="relative max-w-2xl w-full bg-slate-900 border-2 border-amber-500/80 rounded-2xl shadow-2xl overflow-hidden text-slate-100 my-auto max-h-[95vh] flex flex-col">
         {onClose && (
           <button
@@ -333,7 +333,7 @@ export const SetupGameModal: React.FC<SetupGameModalProps> = ({
               </div>
 
               {cloudOnline && cloudSaves.length > 0 ? (
-                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                <div className="space-y-1.5">
                   {cloudSaves.map(save => (
                     <div
                       key={save.id}

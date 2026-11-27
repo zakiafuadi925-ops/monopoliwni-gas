@@ -86,7 +86,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-sm">
       <div className="w-full max-w-2xl bg-slate-900 border border-amber-500/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-800 bg-slate-950/80">
           <div className="flex items-center gap-2">
@@ -186,7 +186,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
                       Kas: {formatRupiahShort(proposer.cash)}
                     </span>
                   </div>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                  <div className="space-y-1.5">
                     {proposerTiles.length === 0 ? (
                       <p className="text-[11px] text-slate-500 italic">Belum punya properti.</p>
                     ) : (
@@ -238,7 +238,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
                         Kas: {formatRupiahShort(target.cash)}
                       </span>
                     </div>
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                    <div className="space-y-1.5">
                       {targetTiles.length === 0 ? (
                         <p className="text-[11px] text-slate-500 italic">Lawan belum punya properti.</p>
                       ) : (

@@ -775,7 +775,7 @@ export const Board: React.FC<BoardProps> = ({
             </span>
           </div>
 
-          <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+          <div className="space-y-2">
             {perimeterTiles.map(tile => {
               const playersOnThisTile = getPlayersOnTile(tile.id);
               const { adjPrice, adjRent } = getAdjustedValues(tile);

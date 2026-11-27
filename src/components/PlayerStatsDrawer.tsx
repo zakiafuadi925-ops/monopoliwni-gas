@@ -607,7 +607,7 @@ export const PlayerStatsDrawer: React.FC<PlayerStatsDrawerProps> = ({
                   Belum ada catatan aktivitas.
                 </p>
               ) : (
-                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {logs.slice().reverse().map(log => {
                     const getTypeBadge = () => {
                       switch (log.type) {

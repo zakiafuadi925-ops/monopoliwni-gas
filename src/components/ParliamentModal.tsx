@@ -209,7 +209,7 @@ export const ParliamentModal: React.FC<ParliamentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
       <div className="max-w-2xl w-full bg-slate-900 border-2 border-amber-500 rounded-2xl shadow-2xl overflow-hidden text-slate-100 flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-slate-950 px-5 py-3.5 flex items-center justify-between shrink-0 shadow-md">

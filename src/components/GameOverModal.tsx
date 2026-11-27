@@ -121,7 +121,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
             Papan Klasemen Akhir:
           </span>
-          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+          <div className="space-y-1.5">
             {sortedPlayers.map((p, idx) => (
               <div
                 key={p.id}
@@ -159,7 +159,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               <Globe className="w-3.5 h-3.5" />
               <span>Peringkat Global ({gameMode})</span>
             </span>
-            <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+            <div className="space-y-1">
               {globalEntries.map((entry, idx) => (
                 <div
                   key={entry.id}
